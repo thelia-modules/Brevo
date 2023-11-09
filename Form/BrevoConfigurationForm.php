@@ -14,7 +14,9 @@ namespace Brevo\Form;
 
 use Brevo\Brevo;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
+use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Validator\Constraints\File;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Thelia\Core\Translation\Translator;
 use Thelia\Form\BaseForm;
@@ -59,6 +61,15 @@ class BrevoConfigurationForm extends BaseForm
                 ),
                 "data" => ConfigQuery::read(Brevo::CONFIG_API_SECRET)
             ))
+            ->add("automation_key", TextType::class, array(
+                "label" => $translator->trans("Automation key", [], Brevo::MESSAGE_DOMAIN),
+                "label_attr" => ["for" => "automation_key"],
+                "required" => true,
+                "constraints" => array(
+                    new NotBlank(),
+                ),
+                "data" => ConfigQuery::read(Brevo::CONFIG_AUTOMATION_KEY)
+            ))
             ->add("newsletter_list", TextType::class, array(
                 "label" => $translator->trans("Contact list ID", [], Brevo::MESSAGE_DOMAIN),
                 "required" => true,
@@ -67,6 +78,17 @@ class BrevoConfigurationForm extends BaseForm
                 ),
                 "data" => ConfigQuery::read(Brevo::CONFIG_NEWSLETTER_ID)
             ))
+            ->add('correspondence_file', FileType::class, [
+                "label" => $translator->trans("Correspondence file", [], Brevo::MESSAGE_DOMAIN),
+                "label_attr" => ["for" => "correspondence_file"],
+                "required" => false,
+                'constraints' => [
+                    new File(
+                        maxSize: '10M',
+                        extensions: ['json']
+                    )
+                ]
+            ])
             ->add("exception_on_errors", CheckboxType::class, array(
                 "label" => $translator->trans("Throw exception on Brevo error", [], Brevo::MESSAGE_DOMAIN),
                 "data" => (bool)ConfigQuery::read(Brevo::CONFIG_THROW_EXCEPTION_ON_ERROR, false),

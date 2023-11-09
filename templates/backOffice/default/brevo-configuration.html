@@ -10,22 +10,25 @@
         </div>
     {/if}
 
-    {form name="brevo.configuration"}
-    <form action="{$current_url}" method="post">
-        {include "includes/inner-form-toolbar.html" hide_flags = 1 close_url={url path='/admin/modules'}}
-        <br/>
+        {form name="brevo.configuration"}
+        <form action="{$current_url}" method="post" enctype="multipart/form-data">
+            {include "includes/inner-form-toolbar.html" hide_flags = 1 close_url={url path='/admin/modules'}}
+            <br/>
 
-        {form_field field="success_url"}
-            <input type="hidden" name="{$name}" value="{url path='/admin/modules'}" />
-        {/form_field}
+            {form_field field="success_url"}
+                <input type="hidden" name="{$name}" value="{url path='/admin/modules'}" />
+            {/form_field}
 
-        {form_hidden_fields}
+            {form_hidden_fields}
 
-        {render_form_field field="api_key"}
-        {render_form_field field="newsletter_list"}
-        {render_form_field field="exception_on_errors"}
+            {render_form_field field="api_key"}
+            {render_form_field field="automation_key"}
+            {render_form_field field="newsletter_list"}
+            {render_form_field field="correspondence_file"}
+            {render_form_field field="exception_on_errors"}
 
-        {include "includes/inner-form-toolbar.html" hide_flags = 1 close_url={url path='/admin/modules'} page_bottom = 1}
-    </form>
-    {/form}
+            {include "includes/inner-form-toolbar.html" hide_flags = 1 close_url={url path='/admin/modules'} page_bottom = 1}
+        </form>
+        {/form}
+    </div>
 </div>
