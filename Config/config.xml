@@ -19,6 +19,8 @@
     <hooks>
         <hook id="brevo.configuration.hook" class="Brevo\Hook\HookManager" scope="request">
             <tag name="hook.event_listener" event="module.configuration" type="back" method="onModuleConfiguration" />
+            <argument type="service" id="request_stack"/>
+            <argument type="service" id="event_dispatcher"/>
         </hook>
     </hooks>
 </config>

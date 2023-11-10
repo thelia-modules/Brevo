@@ -43,15 +43,12 @@ class NewsletterListener implements EventSubscriberInterface
      */
     protected $api;
 
-    public function __construct(Translator $translator)
+    public function __construct(Translator $translator, BrevoClient $brevoClient)
     {
         $this->translator = $translator;
 
         // We can't do some beautiful DI because we can't read config variables through the config.xml
-        $this->api = new BrevoClient(
-            ConfigQuery::read(BrevoModule::CONFIG_API_SECRET),
-            ConfigQuery::read(BrevoModule::CONFIG_NEWSLETTER_ID)
-        );
+        $this->api = $brevoClient;
     }
 
     public function subscribe(NewsletterEvent $event)

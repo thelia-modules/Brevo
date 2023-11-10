@@ -4,7 +4,7 @@
   "type": "thelia-module",
   "require": {
     "thelia/installer": "~1.1",
-    "brevo/api-v3-sdk": "8.x.x"
+    "getbrevo/brevo-php": "1.x.x"
   }
   ,
   "require-dev": {

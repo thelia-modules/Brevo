@@ -12,9 +12,13 @@
 
 namespace Brevo\Controller;
 
+use Brevo\Api\BrevoClient;
 use Brevo\Form\BrevoConfigurationForm;
 use Brevo\Model\BrevoNewsletterQuery;
 use Brevo\Brevo;
+use Brevo\Services\BrevoApiService;
+use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -36,7 +40,7 @@ use Thelia\Tools\URL;
  */
 class BrevoConfigController extends BaseAdminController
 {
-    public function saveAction(Request $request, ParserContext $parserContext)
+    public function saveAction(Request $request, ParserContext $parserContext, BrevoApiService $brevoApiService)
     {
         $baseForm = $this->createForm(BrevoConfigurationForm::getName());
 
@@ -45,8 +49,21 @@ class BrevoConfigController extends BaseAdminController
             $data = $form->getData();
 
             ConfigQuery::write(Brevo::CONFIG_API_SECRET, $data["api_key"]);
+            ConfigQuery::write(Brevo::CONFIG_AUTOMATION_KEY, $data["automation_key"]);
             ConfigQuery::write(Brevo::CONFIG_NEWSLETTER_ID, $data["newsletter_list"]);
             ConfigQuery::write(Brevo::CONFIG_THROW_EXCEPTION_ON_ERROR, (bool)$data["exception_on_errors"]);
+
+            if (isset($data["correspondence_file"])) {
+                $fs = new Filesystem();
+                /** @var UploadedFile $file */
+                $file = $data["correspondence_file"];
+                if (!$fs->exists(BrevoClient::CONTACT_FIELD_CORRESPONDENCE_DIR)){
+                    $fs->mkdir(BrevoClient::CONTACT_FIELD_CORRESPONDENCE_DIR);
+                }
+                $fs->dumpFile(BrevoClient::CONTACT_FIELD_CORRESPONDENCE_FILE, $file->getContent());
+            }
+
+            $brevoApiService->enableEcommerce();
 
             $parserContext->set("success", true);
 

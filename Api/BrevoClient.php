@@ -12,15 +12,21 @@
 
 namespace Brevo\Api;
 
+use Brevo\Brevo;
+use Brevo\Client\Api\ContactsApi;
+use Brevo\Client\ApiException;
+use Brevo\Client\Configuration;
+use Brevo\Client\Model\CreateContact;
+use Brevo\Client\Model\RemoveContactFromList;
+use Brevo\Client\Model\UpdateContact;
 use GuzzleHttp\Client;
-use SendinBlue\Client\Api\ContactsApi;
-use SendinBlue\Client\ApiException;
-use SendinBlue\Client\Configuration;
-use SendinBlue\Client\Model\CreateContact;
-use SendinBlue\Client\Model\RemoveContactFromList;
-use SendinBlue\Client\Model\UpdateContact;
 use Brevo\Model\BrevoNewsletterQuery;
+use Propel\Runtime\Connection\ConnectionWrapper;
+use Propel\Runtime\Propel;
 use Thelia\Core\Event\Newsletter\NewsletterEvent;
+use Thelia\Model\ConfigQuery;
+use Thelia\Model\Customer;
+use Thelia\Model\CustomerQuery;
 
 /**
  * Class BrevoClient
@@ -31,13 +37,17 @@ class BrevoClient
 {
     protected ContactsApi $contactApi;
     private mixed $newsletterId;
+    const CONTACT_FIELD_CORRESPONDENCE_DIR = THELIA_LOCAL_DIR."media/brevo/";
+    const CONTACT_FIELD_CORRESPONDENCE_FILE = self::CONTACT_FIELD_CORRESPONDENCE_DIR."thelia_brevo_contact_field_correspondence.json";
 
 
-    public function __construct($apiKey, $newsletterId)
+    public function __construct($apiKey = null, $newsletterId = null)
     {
-        $this->newsletterId = (int)$newsletterId;
+        $apiKey = $apiKey ? : ConfigQuery::read(Brevo::CONFIG_API_SECRET);
+        $this->newsletterId = $newsletterId ? (int)$newsletterId : ConfigQuery::read(Brevo::CONFIG_NEWSLETTER_ID);
         $config = Configuration::getDefaultConfiguration()->setApiKey('api-key', $apiKey);
         $this->contactApi = new ContactsApi(new Client(), $config);
+
     }
 
     /**
@@ -51,16 +61,37 @@ class BrevoClient
             if ($apiException->getCode() !== 404) {
                 throw $apiException;
             }
-            $createContact = new CreateContact();
-            $createContact['email'] = $event->getEmail();
-            $createContact['attributes'] = ['PRENOM' => $event->getFirstname(), "NOM" => $event->getLastname()];
-            $this->contactApi->createContactWithHttpInfo($createContact);
-            $contact = $this->contactApi->getContactInfoWithHttpInfo($event->getEmail());
+            $contact = $this->createContact($event->getId());
         }
 
         $this->update($event, $contact);
 
         return $contact;
+    }
+
+    public function checkIfContactExist($email)
+    {
+        return $this->contactApi->getContactInfoWithHttpInfo($email);
+    }
+
+    public function createContact(Customer $customer)
+    {
+        $contactAttribute = $this->getCustomerAttribute($customer->getId());
+        $createContact = new CreateContact();
+        $createContact['email'] = $customer->getEmail();
+        $createContact['attributes'] = $contactAttribute;
+        $this->contactApi->createContactWithHttpInfo($createContact);
+        return $this->contactApi->getContactInfoWithHttpInfo($customer->getEmail());
+    }
+
+    public function updateContact($identifier, Customer $customer)
+    {
+        $contactAttribute = $this->getCustomerAttribute($customer->getId());
+        $createContact = new UpdateContact();
+        $createContact['email'] = $customer->getEmail();
+        $createContact['attributes'] = $contactAttribute;
+        $this->contactApi->updateContactWithHttpInfo($identifier, $createContact);
+        return $this->contactApi->getContactInfoWithHttpInfo($customer->getEmail());
     }
 
     public function update(NewsletterEvent $event, $contact = null)
@@ -100,4 +131,57 @@ class BrevoClient
 
         return $change ? $this->contactApi->getContactInfoWithHttpInfo($event->getEmail()) : $contact;
     }
+    public function getCustomerAttribute($customerId)
+    {
+        if (!file_exists(self::CONTACT_FIELD_CORRESPONDENCE_FILE)) {
+            throw new \Exception("Customer attribute correspondence error : configuration is missing, please go to the module configuration and upload the json file to match thelia attribute with brevo attribute");
+        }
+
+        $correspondence = json_decode(file_get_contents(self::CONTACT_FIELD_CORRESPONDENCE_FILE), true, 512, JSON_THROW_ON_ERROR);
+
+        if (!array_key_exists('customer_query', $correspondence)) {
+            throw new \Exception("Customer attribute correspondence error : the configuration file is incorrect, 'customer_query' element is missing");
+        }
+
+        $attributes = [];
+
+        /** @var ConnectionWrapper $con */
+        $con = Propel::getConnection();
+
+        foreach ($correspondence['customer_query'] as $key => $customerDataQuery) {
+
+            if (!array_key_exists('select', $customerDataQuery)) {
+                throw new \Exception("Customer attribute correspondence error : 'select' element missing in " . $key . ' query');
+            }
+
+            $sql = 'SELECT ' . $customerDataQuery['select'] . ' AS ' . $key . ' FROM customer';
+
+            if (array_key_exists('join', $customerDataQuery)) {
+                foreach ($customerDataQuery['join'] as $join) {
+                    $sql .= ' LEFT JOIN ' . $join;
+                }
+            }
+
+            $sql .= ' WHERE customer.id = :customerId';
+
+            if (array_key_exists('groupBy', $customerDataQuery)) {
+                $sql .= ' GROUP BY ' . $customerDataQuery['groupBy'];
+            }
+
+            $stmt = $con->prepare($sql);
+            $stmt->bindValue(':customerId', $customerId, \PDO::PARAM_INT);
+            $stmt->execute();
+
+            while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                $attributes[$key] = $row[$key];
+                if (array_key_exists($key, $correspondence) && array_key_exists($row[$key], $correspondence[$key])){
+                    $attributes[$key] = $correspondence[$key][$row[$key]];
+                }
+            }
+
+        }
+
+        return $attributes;
+    }
+
 }
