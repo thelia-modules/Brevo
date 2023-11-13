@@ -8,14 +8,6 @@
         <form name="brevo.configuration" class="Brevo\Form\BrevoConfigurationForm" />
     </forms>
 
-    <services>
-        <service id="action.brevo.newsletter" class="Brevo\EventListeners\NewsletterListener">
-            <argument type="service" id="thelia.translator" />
-
-            <tag name="kernel.event_subscriber" />
-        </service>
-    </services>
-
     <hooks>
         <hook id="brevo.configuration.hook" class="Brevo\Hook\HookManager" scope="request">
             <tag name="hook.event_listener" event="module.configuration" type="back" method="onModuleConfiguration" />
