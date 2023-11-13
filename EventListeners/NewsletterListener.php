@@ -23,7 +23,7 @@ use Thelia\Core\Event\Newsletter\NewsletterEvent;
 use Thelia\Core\Event\TheliaEvents;
 use Thelia\Core\Translation\Translator;
 use Thelia\Log\Tlog;
-use Thelia\Model\Base\NewsletterQuery;
+use Thelia\Model\NewsletterQuery;
 use Thelia\Model\ConfigQuery;
 
 /**
@@ -33,22 +33,8 @@ use Thelia\Model\ConfigQuery;
  */
 class NewsletterListener implements EventSubscriberInterface
 {
-    /**
-     * @var Translator
-     */
-    protected $translator;
-
-    /**
-     * @var BrevoClient
-     */
-    protected $api;
-
-    public function __construct(Translator $translator, BrevoClient $brevoClient)
+    public function __construct(private BrevoClient $api)
     {
-        $this->translator = $translator;
-
-        // We can't do some beautiful DI because we can't read config variables through the config.xml
-        $this->api = $brevoClient;
     }
 
     public function subscribe(NewsletterEvent $event)
@@ -152,7 +138,7 @@ class NewsletterListener implements EventSubscriberInterface
 
             if (ConfigQuery::read(Brevo::CONFIG_THROW_EXCEPTION_ON_ERROR, false)) {
                 throw new \InvalidArgumentException(
-                    $this->translator->trans(
+                    Translator::getInstance()?->trans(
                         "An error occurred during the newsletter registration process",
                         [],
                         BrevoModule::MESSAGE_DOMAIN
