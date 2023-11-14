@@ -48,7 +48,7 @@ class BrevoClient
     public function __construct($apiKey = null, $newsletterId = null)
     {
         $apiKey = $apiKey ?: ConfigQuery::read(Brevo::CONFIG_API_SECRET);
-        $this->newsletterId = $newsletterId ? (int) $newsletterId : ConfigQuery::read(Brevo::CONFIG_NEWSLETTER_ID);
+        $this->newsletterId = (int) ($newsletterId ?? ConfigQuery::read(Brevo::CONFIG_NEWSLETTER_ID));
         $config = Configuration::getDefaultConfiguration()->setApiKey('api-key', $apiKey);
         $this->contactApi = new ContactsApi(new Client(), $config);
     }

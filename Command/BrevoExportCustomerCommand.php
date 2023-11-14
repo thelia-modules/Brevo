@@ -53,12 +53,11 @@ class BrevoExportCustomerCommand extends ContainerAwareCommand
                 $progressBar->advance();
             }
 
+            $progressBar->finish();
         } catch (\Exception $exception) {
             $output->writeln('error during import : '.$exception->getMessage());
             $progressBar->setMessage("<error>".$exception->getMessage()."</error>");
         }
-
-        $progressBar->finish();
 
         return Command::SUCCESS;
     }
