@@ -3,8 +3,10 @@
 namespace Brevo\Services;
 
 use Brevo\Api\BrevoClient;
+use Brevo\Brevo;
 use Propel\Runtime\Connection\ConnectionInterface;
 use Thelia\Install\Database;
+use Thelia\Model\ConfigQuery;
 use Thelia\Model\Customer;
 use Thelia\Model\CustomerQuery;
 
@@ -16,11 +18,12 @@ class BrevoCustomerService
 
     public function createUpdateContact($customerId)
     {
-        if (!file_exists(BrevoClient::CONTACT_FIELD_CORRESPONDENCE_FILE)) {
+        if (empty(ConfigQuery::read(Brevo::BREVO_ATTRIBUTES_MAPPING, ''))) {
             return null;
         }
 
         $customer = CustomerQuery::create()->findPk($customerId);
+
         try {
             $contact = $this->brevoClient->checkIfContactExist($customer->getEmail());
 

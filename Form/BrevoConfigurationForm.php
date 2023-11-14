@@ -1,38 +1,43 @@
 <?php
-/*************************************************************************************/
-/*      This file is part of the Thelia package.                                     */
-/*                                                                                   */
-/*      Copyright (c) OpenStudio                                                     */
-/*      email : dev@thelia.net                                                       */
-/*      web : http://www.thelia.net                                                  */
-/*                                                                                   */
-/*      For the full copyright and license information, please view the LICENSE.txt  */
-/*      file that was distributed with this source code.                             */
-/*************************************************************************************/
+
+/*
+ * This file is part of the Thelia package.
+ * http://www.thelia.net
+ *
+ * (c) OpenStudio <info@thelia.net>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
+/*      Copyright (c) OpenStudio */
+/*      email : dev@thelia.net */
+/*      web : http://www.thelia.net */
+
+/*      For the full copyright and license information, please view the LICENSE.txt */
+/*      file that was distributed with this source code. */
 
 namespace Brevo\Form;
 
 use Brevo\Brevo;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
-use Symfony\Component\Form\Extension\Core\Type\FileType;
+use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
-use Symfony\Component\Validator\Constraints\File;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Thelia\Core\Translation\Translator;
 use Thelia\Form\BaseForm;
 use Thelia\Model\ConfigQuery;
 
 /**
- * Class BrevoConfigurationForm
- * @package Brevo\Form
+ * Class BrevoConfigurationForm.
+ *
  * @author Chabreuil Antoine <achabreuil@openstudio.com>
  */
 class BrevoConfigurationForm extends BaseForm
 {
     /**
-     *
      * in this function you add all the fields you need for your Form.
-     * Form this you have to call add method on $this->formBuilder attribute :
+     * Form this you have to call add method on $this->formBuilder attribute :.
      *
      * $this->formBuilder->add("name", "text")
      *   ->add("email", "email", array(
@@ -47,60 +52,95 @@ class BrevoConfigurationForm extends BaseForm
      *   )
      *   ->add('age', 'integer');
      */
-    protected function buildForm()
+    protected function buildForm(): void
     {
         $translator = Translator::getInstance();
 
+        $defaultMapping = <<< END
+{
+  "customer_query": {
+        "EMAIL" : {
+            "select" : "customer.email"
+        }
+    }
+}
+END;
         $this->formBuilder
-            ->add("api_key", TextType::class, array(
-                "label" => $translator->trans("Api key", [], Brevo::MESSAGE_DOMAIN),
-                "label_attr" => ["for" => "api_key"],
-                "required" => true,
-                "constraints" => array(
-                    new NotBlank(),
-                ),
-                "data" => ConfigQuery::read(Brevo::CONFIG_API_SECRET)
-            ))
-            ->add("automation_key", TextType::class, array(
-                "label" => $translator->trans("Automation key", [], Brevo::MESSAGE_DOMAIN),
-                "label_attr" => ["for" => "automation_key"],
-                "required" => true,
-                "constraints" => array(
-                    new NotBlank(),
-                ),
-                "data" => ConfigQuery::read(Brevo::CONFIG_AUTOMATION_KEY)
-            ))
-            ->add("newsletter_list", TextType::class, array(
-                "label" => $translator->trans("Contact list ID", [], Brevo::MESSAGE_DOMAIN),
-                "required" => true,
-                "constraints" => array(
-                    new NotBlank(),
-                ),
-                "data" => ConfigQuery::read(Brevo::CONFIG_NEWSLETTER_ID)
-            ))
-            ->add('correspondence_file', FileType::class, [
-                "label" => $translator->trans("Correspondence file", [], Brevo::MESSAGE_DOMAIN),
-                "label_attr" => ["for" => "correspondence_file"],
-                "required" => false,
+            ->add('api_key', TextType::class, [
+                'label' => $translator->trans('Brevo API key', [], Brevo::MESSAGE_DOMAIN),
+                'label_attr' => [
+                    'for' => 'api_key',
+                    'help' => Translator::getInstance()->trans(
+                        'To get an API key, click the top right menu -> SMTP and API -> API Keys -> create a new API Key',
+                        [],
+                        Brevo::MESSAGE_DOMAIN
+                    ),
+                ],
+                'required' => true,
                 'constraints' => [
-                    new File(
-                        maxSize: '10M',
-                        extensions: ['json']
-                    )
-                ]
+                    new NotBlank(),
+                ],
+                'data' => ConfigQuery::read(Brevo::CONFIG_API_SECRET),
             ])
-            ->add("exception_on_errors", CheckboxType::class, array(
-                "label" => $translator->trans("Throw exception on Brevo error", [], Brevo::MESSAGE_DOMAIN),
-                "data" => (bool)ConfigQuery::read(Brevo::CONFIG_THROW_EXCEPTION_ON_ERROR, false),
-                'required' => false,
-                "label_attr" => [
-                    'help' => $translator->trans(
-                        "The module will throw an error if something wrong happens whan talking to Brevo. Warning ! This could prevent user registration if Brevo server is down or unreachable !",
+            ->add('automation_key', TextType::class, [
+                'label' => $translator->trans('Automation key', [], Brevo::MESSAGE_DOMAIN),
+                'label_attr' => [
+                    'for' => 'automation_key',
+                    'help' => Translator::getInstance()->trans(
+                        'To get a key, select Automation in the left menu -> Settings -> Tracking code -> JS tracer -> copy the client_key value in the JS code displayed (something like k43xd26m9fzeyup9r3nogjxp)',
+                        [],
+                        Brevo::MESSAGE_DOMAIN
+                    ),
+                ],
+                'required' => true,
+                'constraints' => [
+                    new NotBlank(),
+                ],
+                'data' => ConfigQuery::read(Brevo::CONFIG_AUTOMATION_KEY),
+            ])
+            ->add('newsletter_list', TextType::class, [
+                'label' => $translator->trans('Contact list ID', [], Brevo::MESSAGE_DOMAIN),
+                'label_attr' => [
+                    'help' => Translator::getInstance()->trans(
+                        'Click Contacts in the left menu -> Lists and get the list ID without # (e.g. enter 22 if the list ID is #22)',
+                        [],
+                        Brevo::MESSAGE_DOMAIN
+                    ),
+                ],
+                'required' => true,
+                'constraints' => [
+                    new NotBlank(),
+                ],
+                'data' => ConfigQuery::read(Brevo::CONFIG_NEWSLETTER_ID),
+            ])
+            ->add('attributes_mapping', TextareaType::class, [
+                'label' => $translator->trans('Customer attributes mapping', [], Brevo::MESSAGE_DOMAIN),
+                'attr' => [
+                    'rows' => 10
+                ],
+                'label_attr' => [
+                    'for' => 'attributes_mapping',
+                    'help' => Translator::getInstance()->trans(
+                        'This is a mapping of Brevo contact attributes with Thelia customer attributes. Do not change anything here if you do not know exactly what you are doing',
                         [],
                         Brevo::MESSAGE_DOMAIN
                     )
-                ]
-            ))
+                ],
+                'required' => false,
+                'data' => ConfigQuery::read(Brevo::BREVO_ATTRIBUTES_MAPPING, $defaultMapping),
+            ])
+            ->add('exception_on_errors', CheckboxType::class, [
+                'label' => $translator->trans('Throw exception on Brevo error', [], Brevo::MESSAGE_DOMAIN),
+                'data' => (bool) ConfigQuery::read(Brevo::CONFIG_THROW_EXCEPTION_ON_ERROR, false),
+                'required' => false,
+                'label_attr' => [
+                    'help' => $translator->trans(
+                        'The module will throw an error if something wrong happens whan talking to Brevo. Warning ! This could prevent user registration if Brevo server is down or unreachable !',
+                        [],
+                        Brevo::MESSAGE_DOMAIN
+                    ),
+                ],
+            ])
         ;
     }
 
@@ -109,6 +149,6 @@ class BrevoConfigurationForm extends BaseForm
      */
     public static function getName()
     {
-        return "brevo_configuration";
+        return 'brevo_configuration';
     }
 }

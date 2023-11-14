@@ -33,6 +33,7 @@ class Brevo extends BaseModule
     const CONFIG_API_SECRET = "brevo.api.secret";
     const CONFIG_AUTOMATION_KEY= "brevo.automation.key";
     const CONFIG_THROW_EXCEPTION_ON_ERROR = "brevo.throw_exception_on_error";
+    const BREVO_ATTRIBUTES_MAPPING = "brevo.brevo_attributes_mapping";
 
     public function postActivation(ConnectionInterface $con = null): void
     {
