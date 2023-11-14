@@ -59,6 +59,8 @@ class BrevoExportCustomerCommand extends ContainerAwareCommand
             $progressBar->setMessage("<error>".$exception->getMessage()."</error>");
         }
 
+        $output->writeln(" customer export done.");
+
         return Command::SUCCESS;
     }
 }

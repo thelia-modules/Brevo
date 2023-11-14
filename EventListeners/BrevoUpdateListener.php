@@ -10,10 +10,13 @@ use Thelia\Core\Event\Category\CategoryUpdateEvent;
 use Thelia\Core\Event\Product\ProductCreateEvent;
 use Thelia\Core\Event\Product\ProductUpdateEvent;
 use Thelia\Core\Event\TheliaEvents;
+use Thelia\Model\Country;
 use Thelia\Model\CountryQuery;
+use Thelia\Model\Currency;
 use Thelia\Model\CurrencyQuery;
 use Thelia\Model\Event\CategoryEvent;
 use Thelia\Model\Event\ProductEvent;
+use Thelia\Model\Lang;
 use Thelia\Model\LangQuery;
 
 class BrevoUpdateListener implements EventSubscriberInterface
@@ -39,30 +42,29 @@ class BrevoUpdateListener implements EventSubscriberInterface
 
     public function updateProduct(ProductUpdateEvent $event)
     {
-        $lang = LangQuery::create()->filterByByDefault(1)->findOne();
-        $currency = CurrencyQuery::create()->filterByByDefault(1)->findOne();
-        $country = CountryQuery::create()->filterByByDefault(1)->findOne();
-        $this->brevoProductService->exportProduct($event->getProduct(), $lang->getLocale(), $currency, $country);
+        $lang = Lang::getDefaultLanguage();
+        $currency = Currency::getDefaultCurrency();
+        $country = Country::getDefaultCountry();
+        $this->brevoProductService->export($event->getProduct(), $lang->getLocale(), $currency, $country);
     }
 
     public function createProduct(ProductCreateEvent $event)
     {
-        $lang = LangQuery::create()->filterByByDefault(1)->findOne();
-        $currency = CurrencyQuery::create()->filterByByDefault(1)->findOne();
-        $country = CountryQuery::create()->filterByByDefault(1)->findOne();
-        $this->brevoProductService->exportProduct($event->getProduct(), $lang->getLocale(), $currency, $country);
+        $lang = Lang::getDefaultLanguage();
+        $currency = Currency::getDefaultCurrency();
+        $country = Country::getDefaultCountry();
+        $this->brevoProductService->export($event->getProduct(), $lang->getLocale(), $currency, $country);
     }
 
     public function updateCategory(CategoryUpdateEvent $event)
     {
-        $lang = LangQuery::create()->filterByByDefault(1)->findOne();
-        $this->brevoCategoryService->exportCategory($event->getCategory(), $lang->getLocale());
+        $lang = Lang::getDefaultLanguage();
+        $this->brevoCategoryService->export($event->getCategory(), $lang->getLocale());
     }
 
     public function createCategory(CategoryCreateEvent $event)
     {
-        $lang = LangQuery::create()->filterByByDefault(1)->findOne();
-        $this->brevoCategoryService->exportCategory($event->getCategory(), $lang->getLocale());
+        $lang = Lang::getDefaultLanguage();
+        $this->brevoCategoryService->export($event->getCategory(), $lang->getLocale());
     }
-
 }

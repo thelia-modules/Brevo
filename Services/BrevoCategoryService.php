@@ -2,19 +2,10 @@
 
 namespace Brevo\Services;
 
-use Brevo\Api\BrevoClient;
 use Thelia\Log\Tlog;
-use Thelia\Model\Base\ProductQuery;
-use Thelia\Model\Cart;
 use Thelia\Model\Category;
 use Thelia\Model\CategoryQuery;
-use Thelia\Model\Country;
-use Thelia\Model\Currency;
-use Thelia\Model\Order;
-use Thelia\Model\OrderProduct;
 use Thelia\Model\Product;
-use Thelia\Model\ProductImageQuery;
-use Thelia\Model\ProductSaleElementsQuery;
 use Thelia\Tools\URL;
 
 class BrevoCategoryService
@@ -23,9 +14,19 @@ class BrevoCategoryService
     {
     }
 
-    public function exportCategory(Category $category, $locale)
+    public function getObjName()
     {
-        $data = $this->getCategoryData($category, $locale);
+        return 'category';
+    }
+
+    public function getCount()
+    {
+        return CategoryQuery::create()->count();
+    }
+
+    public function export(Category $category, $locale)
+    {
+        $data = $this->getData($category, $locale);
         $data['updateEnabled'] = true;
 
         try {
@@ -35,7 +36,7 @@ class BrevoCategoryService
         }
     }
 
-    public function exportCategoryInBatch($limit, $offset, $locale)
+    public function exportInBatch($limit, $offset, $locale)
     {
         $categories = CategoryQuery::create()
             ->setLimit($limit)
@@ -46,7 +47,7 @@ class BrevoCategoryService
 
         /** @var Product $product */
         foreach ($categories as $category) {
-            $data[] = $this->getCategoryData($category, $locale);
+            $data[] = $this->getData($category, $locale);
         }
 
         $batchData['categories'] = $data;
@@ -59,7 +60,7 @@ class BrevoCategoryService
         }
     }
 
-    public function getCategoryData(Category $category, $locale)
+    public function getData(Category $category, $locale)
     {
         $category->setLocale($locale);
 

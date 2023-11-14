@@ -1,10 +1,21 @@
 <?php
 
+/*
+ * This file is part of the Thelia package.
+ * http://www.thelia.net
+ *
+ * (c) OpenStudio <info@thelia.net>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Brevo\Services;
 
 use Thelia\Log\Tlog;
 use Thelia\Model\Base\ProductQuery;
 use Thelia\Model\Cart;
+use Thelia\Model\CategoryQuery;
 use Thelia\Model\Country;
 use Thelia\Model\Currency;
 use Thelia\Model\Order;
@@ -20,9 +31,19 @@ class BrevoProductService
     {
     }
 
-    public function exportProduct(Product $product, $locale, Currency $currency, Country $country)
+    public function getObjName()
     {
-        $data = $this->getProductData($product, $locale, $currency, $country);
+        return 'product';
+    }
+
+    public function getCount()
+    {
+        return ProductQuery::create()->count();
+    }
+
+    public function export(Product $product, $locale, Currency $currency, Country $country): void
+    {
+        $data = $this->getData($product, $locale, $currency, $country);
         $data['updateEnabled'] = true;
 
         try {
@@ -32,7 +53,7 @@ class BrevoProductService
         }
     }
 
-    public function exportProductInBatch($limit, $offset, $locale, Currency $currency, Country $country)
+    public function exportInBatch($limit, $offset, $locale, Currency $currency, Country $country): void
     {
         $products = ProductQuery::create()
             ->setLimit($limit)
@@ -43,7 +64,7 @@ class BrevoProductService
 
         /** @var Product $product */
         foreach ($products as $product) {
-            $data[] = $this->getProductData($product, $locale, $currency, $country);
+            $data[] = $this->getData($product, $locale, $currency, $country);
         }
 
         $batchData['products'] = $data;
@@ -56,28 +77,27 @@ class BrevoProductService
         }
     }
 
-    public function getProductData(Product $product, $locale, Currency $currency, Country $country)
+    public function getData(Product $product, $locale, Currency $currency, Country $country)
     {
         $product->setLocale($locale);
         $imagePath = ProductImageQuery::create()->filterByProductId($product->getId())->orderByPosition()->findOne()?->getFile();
 
         $productPrice = $product->getDefaultSaleElements()->getPricesByCurrency($currency);
         $categories = $product->getCategories();
-        $categoryIds = array_map(function ($category){
-            return (string)$category['Id'];
+        $categoryIds = array_map(function ($category) {
+            return (string) $category['Id'];
         }, $categories->toArray());
 
-         return [
-            'categories' => $categoryIds,
-            'id' => (string)$product->getId(),
-            'name' => $product->getTitle(),
-            'url' => URL::getInstance()?->absoluteUrl($product->getUrl()),
-            'image' => $imagePath ? URL::getInstance()?->absoluteUrl('/cache/images/product/' . $imagePath) : null,
-            'sku' => $product->getRef(),
-            'price' => round((float)$product->getTaxedPrice($country, $productPrice->getPrice()), 2)
+        return [
+           'categories' => $categoryIds,
+           'id' => (string) $product->getId(),
+           'name' => $product->getTitle(),
+           'url' => URL::getInstance()?->absoluteUrl($product->getUrl()),
+           'image' => $imagePath ? URL::getInstance()?->absoluteUrl('/cache/images/product/'.$imagePath) : null,
+           'sku' => $product->getRef(),
+           'price' => round((float) $product->getTaxedPrice($country, $productPrice->getPrice()), 2),
         ];
     }
-
 
     public function getItemsByOrder(Order $order, $locale)
     {
@@ -85,8 +105,7 @@ class BrevoProductService
 
         /** @var OrderProduct $orderProduct */
         foreach ($order->getOrderProducts() as $orderProduct) {
-
-            $pse  = ProductSaleElementsQuery::create()->findPk($orderProduct->getProductSaleElementsId());
+            $pse = ProductSaleElementsQuery::create()->findPk($orderProduct->getProductSaleElementsId());
 
             $productData = [
                 'name' => $orderProduct->getTitle(),
@@ -100,7 +119,7 @@ class BrevoProductService
                 $imagePath = ProductImageQuery::create()->filterByProductId($pse->getProductId())->orderByPosition()->findOne()?->getFile();
 
                 $productData['url'] = URL::getInstance()?->absoluteUrl($product->getUrl());
-                $productData['image'] = $imagePath ? URL::getInstance()?->absoluteUrl('/cache/images/product/' . $imagePath) : null;
+                $productData['image'] = $imagePath ? URL::getInstance()?->absoluteUrl('/cache/images/product/'.$imagePath) : null;
             }
 
             $data[] = $productData;
@@ -108,6 +127,7 @@ class BrevoProductService
 
         return $data;
     }
+
     public function getItemsByCart(Cart $cart, $locale)
     {
         $data = [];
@@ -124,11 +144,10 @@ class BrevoProductService
                 'price' => round($cartItem->getPrice(), 2),
                 'quantity' => $cartItem->getQuantity(),
                 'url' => URL::getInstance()?->absoluteUrl($cartItem->getProduct()->getUrl()),
-                'image' => $imagePath ? URL::getInstance()?->absoluteUrl('/cache/images/product/' . $imagePath) : null
+                'image' => $imagePath ? URL::getInstance()?->absoluteUrl('/cache/images/product/'.$imagePath) : null,
             ];
         }
 
         return $data;
     }
-
 }

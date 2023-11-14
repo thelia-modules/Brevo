@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <module xmlns="http://thelia.net/schema/dic/module"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:schemaLocation="http://thelia.net/schema/dic/module http://thelia.net/schema/dic/module/module-2_1.xsd">
+        xsi:schemaLocation="http://thelia.net/schema/dic/module http://thelia.net/schema/dic/module/module-2_2.xsd">
     <fullnamespace>Brevo\Brevo</fullnamespace>
     <descriptive locale="en_US">
         <title>Brevo</title>
@@ -13,11 +13,21 @@
         <language>en_US</language>
         <language>fr_FR</language>
     </languages>
-    <version>1.1.4</version>
-    <author>
+    <version>1.1.5</version>
+    <authors>
+      <author>
         <name>Chabreuil Antoine</name>
-        <email>achabreuil@openstudio.fr, thelia@cqfdev.fr</email>
-    </author>
+        <email>achabreuil@openstudio.fr</email>
+      </author>
+      <author>
+        <name>Nicolas Barbey</name>
+        <email>abarbey@openstudio.fr</email>
+      </author>
+      <author>
+        <name>Franck Allimant</name>
+        <email>fallimant@openstudio.fr</email>
+      </author>
+    </authors>
     <type>classic</type>
     <thelia>2.5.2</thelia>
     <stability>other</stability>
