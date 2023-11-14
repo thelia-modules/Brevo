@@ -47,13 +47,22 @@ class BrevoExportProductCommand extends ContainerAwareCommand
 
         $productCount = ProductQuery::create()->count();
 
+        $batchSize = 100;
+
+        $progressBar = ProgressBarHelper::createProgressBar($output, $productCount);
+
         try {
-            for ($i = 0; $i < $productCount; $i+=100) {
-                $this->brevoProductService->exportProductInBatch(100, $i, $lang->getLocale(), $currency, $country);
+            for ($i = 0; $i < $productCount; $i+=$batchSize) {
+                $progressBar->setMessage("<info>Exporting $batchSize products</info>");
+                $this->brevoProductService->exportProductInBatch($batchSize, $i, $lang->getLocale(), $currency, $country);
+                $progressBar->advance($batchSize);
             }
-        }catch (\Exception $exception) {
+        } catch (\Exception $exception) {
             $output->writeln('error during import : '.$exception->getMessage());
+            $progressBar->setMessage("<error>".$exception->getMessage()."</error>");
         }
+
+        $progressBar->finish();
 
         return Command::SUCCESS;
     }

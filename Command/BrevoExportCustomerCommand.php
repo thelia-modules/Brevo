@@ -6,6 +6,7 @@ use Brevo\Api\BrevoClient;
 use Brevo\Brevo;
 use Brevo\Services\BrevoCustomerService;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Thelia\Command\ContainerAwareCommand;
@@ -41,14 +42,23 @@ class BrevoExportCustomerCommand extends ContainerAwareCommand
 
         $customers = CustomerQuery::create()->find();
 
+        $progressBar = ProgressBarHelper::createProgressBar($output, $customers->count());
+
         try {
             foreach ($customers as $customer) {
+                $progressBar->setMessage("<info>".$customer->getEmail()."</info>");
+
                 $this->brevoCustomerService->createUpdateContact($customer->getId());
+
+                $progressBar->advance();
             }
 
-        }catch (\Exception $exception) {
+        } catch (\Exception $exception) {
             $output->writeln('error during import : '.$exception->getMessage());
+            $progressBar->setMessage("<error>".$exception->getMessage()."</error>");
         }
+
+        $progressBar->finish();
 
         return Command::SUCCESS;
     }

@@ -43,14 +43,23 @@ class BrevoExportCategoryCommand extends ContainerAwareCommand
 
         $categoryCount = CategoryQuery::create()->count();
 
+        $progressBar = ProgressBarHelper::createProgressBar($output, $categoryCount);
+
+        $batchSize = 100;
+
         try {
-            for ($i = 0; $i < $categoryCount; $i+=100) {
-                $this->brevoCategoryService->exportCategoryInBatch(100, $i, $lang->getLocale());
+            for ($i = 0; $i < $categoryCount; $i+=$batchSize) {
+                $progressBar->setMessage("<info>Exporting $batchSize categories</info>");
+                $this->brevoCategoryService->exportCategoryInBatch($batchSize, $i, $lang->getLocale());
+                $progressBar->advance($batchSize);
             }
 
-        }catch (\Exception $exception) {
+        } catch (\Exception $exception) {
             $output->writeln('error during import : '.$exception->getMessage());
+            $progressBar->setMessage("<error>".$exception->getMessage()."</error>");
         }
+
+        $progressBar->finish();
 
         return Command::SUCCESS;
     }

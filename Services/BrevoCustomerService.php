@@ -1,13 +1,20 @@
 <?php
 
+/*
+ * This file is part of the Thelia package.
+ * http://www.thelia.net
+ *
+ * (c) OpenStudio <info@thelia.net>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Brevo\Services;
 
 use Brevo\Api\BrevoClient;
 use Brevo\Brevo;
-use Propel\Runtime\Connection\ConnectionInterface;
-use Thelia\Install\Database;
 use Thelia\Model\ConfigQuery;
-use Thelia\Model\Customer;
 use Thelia\Model\CustomerQuery;
 
 class BrevoCustomerService
@@ -28,10 +35,11 @@ class BrevoCustomerService
             $contact = $this->brevoClient->checkIfContactExist($customer->getEmail());
 
             return $this->brevoClient->updateContact($contact[0]->getId(), $customer);
-        }catch (\Exception $exception) {
+        } catch (\Exception $exception) {
             if ($exception->getCode() !== 404) {
                 throw $exception;
             }
+
             return $this->brevoClient->createContact($customer);
         }
     }

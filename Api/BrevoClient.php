@@ -83,6 +83,7 @@ class BrevoClient
         $createContact = new CreateContact();
         $createContact['email'] = $customer->getEmail();
         $createContact['attributes'] = $contactAttribute;
+        $createContact['listIds'] = [$this->newsletterId];
         $this->contactApi->createContactWithHttpInfo($createContact);
 
         return $this->contactApi->getContactInfoWithHttpInfo($customer->getEmail());
@@ -94,6 +95,7 @@ class BrevoClient
         $createContact = new UpdateContact();
         $createContact['email'] = $customer->getEmail();
         $createContact['attributes'] = $contactAttribute;
+        $createContact['listIds'] = [$this->newsletterId];
         $this->contactApi->updateContactWithHttpInfo($identifier, $createContact);
 
         return $this->contactApi->getContactInfoWithHttpInfo($customer->getEmail());
