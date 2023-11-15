@@ -23,7 +23,9 @@ use Brevo\Brevo;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Validator\Constraints\Callback;
 use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
 use Thelia\Core\Translation\Translator;
 use Thelia\Form\BaseForm;
 use Thelia\Model\ConfigQuery;
@@ -127,6 +129,10 @@ END;
                     )
                 ],
                 'required' => false,
+                'constraints' => [
+                    new NotBlank(),
+                    new Callback([$this, 'checkJsonValidity']),
+                ],
                 'data' => ConfigQuery::read(Brevo::BREVO_ATTRIBUTES_MAPPING, $defaultMapping),
             ])
             ->add('exception_on_errors', CheckboxType::class, [
@@ -142,6 +148,32 @@ END;
                 ],
             ])
         ;
+    }
+    public function checkJsonValidity($value, ExecutionContextInterface $context): void
+    {
+        if (empty($value)) {
+            return;
+        }
+
+        if (null === $jsonData = json_decode($value, true)) {
+            $context->addViolation(
+                Translator::getInstance()->trans(
+                    "The customer attributes mapping JSON seems invalid, please check syntax.",
+                    [],
+                    Brevo::MESSAGE_DOMAIN
+                )
+            );
+        }
+
+        if (! isset($jsonData['customer_query'])) {
+            $context->addViolation(
+                Translator::getInstance()->trans(
+                    "The customer attributes mapping JSON should contain a 'customer_query' field.",
+                    [],
+                    Brevo::MESSAGE_DOMAIN
+                )
+            );
+        }
     }
 
     /**

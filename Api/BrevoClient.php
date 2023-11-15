@@ -32,6 +32,7 @@ use Propel\Runtime\Connection\ConnectionWrapper;
 use Propel\Runtime\Propel;
 use Thelia\Core\Event\Newsletter\NewsletterEvent;
 use Thelia\Exception\TheliaProcessException;
+use Thelia\Log\Tlog;
 use Thelia\Model\ConfigQuery;
 use Thelia\Model\Customer;
 
@@ -142,10 +143,16 @@ class BrevoClient
     public function getCustomerAttribute($customerId)
     {
         try {
-            $mapping = json_decode(ConfigQuery::read(Brevo::BREVO_ATTRIBUTES_MAPPING), true, 512, \JSON_THROW_ON_ERROR);
+            if (null === $mapping = json_decode(ConfigQuery::read(Brevo::BREVO_ATTRIBUTES_MAPPING), true, 512, \JSON_THROW_ON_ERROR)) {
+                throw new TheliaProcessException("Customer attribute mapping error: JSON data seems invalid, pleas echeck syntax.");
+            }
+
+            if (empty($mapping)) {
+                return [];
+            }
 
             if (!\array_key_exists('customer_query', $mapping)) {
-                throw new \Exception("Customer attribute mapping error : the configuration file is incorrect, 'customer_query' element is missing");
+                throw new TheliaProcessException("Customer attribute mapping error : 'customer_query' element is missing in JSON data");
             }
 
             $attributes = [];
@@ -155,32 +162,37 @@ class BrevoClient
 
             foreach ($mapping['customer_query'] as $key => $customerDataQuery) {
                 if (!\array_key_exists('select', $customerDataQuery)) {
-                    throw new \Exception("Customer attribute mapping error : 'select' element missing in " . $key . ' query');
+                    throw new \Exception("Customer attribute mapping error : 'select' element missing in ".$key.' query');
                 }
 
-                $sql = 'SELECT ' . $customerDataQuery['select'] . ' AS ' . $key . ' FROM customer';
+                try {
+                    $sql = 'SELECT '.$customerDataQuery['select'].' AS '.$key.' FROM customer';
 
-                if (\array_key_exists('join', $customerDataQuery)) {
-                    foreach ($customerDataQuery['join'] as $join) {
-                        $sql .= ' LEFT JOIN ' . $join;
+                    if (\array_key_exists('join', $customerDataQuery)) {
+                        foreach ($customerDataQuery['join'] as $join) {
+                            $sql .= ' LEFT JOIN '.$join;
+                        }
                     }
-                }
 
-                $sql .= ' WHERE customer.id = :customerId';
+                    $sql .= ' WHERE customer.id = :customerId';
 
-                if (\array_key_exists('groupBy', $customerDataQuery)) {
-                    $sql .= ' GROUP BY ' . $customerDataQuery['groupBy'];
-                }
-
-                $stmt = $con->prepare($sql);
-                $stmt->bindValue(':customerId', $customerId, \PDO::PARAM_INT);
-                $stmt->execute();
-
-                while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-                    $attributes[$key] = $row[$key];
-                    if (\array_key_exists($key, $mapping) && \array_key_exists($row[$key], $mapping[$key])) {
-                        $attributes[$key] = $mapping[$key][$row[$key]];
+                    if (\array_key_exists('groupBy', $customerDataQuery)) {
+                        $sql .= ' GROUP BY '.$customerDataQuery['groupBy'];
                     }
+
+                    $stmt = $con->prepare($sql);
+                    $stmt->bindValue(':customerId', $customerId, \PDO::PARAM_INT);
+                    $stmt->execute();
+
+                    while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                        $attributes[$key] = $row[$key];
+                        if (\array_key_exists($key, $mapping) && \array_key_exists($row[$key], $mapping[$key])) {
+                            $attributes[$key] = $mapping[$key][$row[$key]];
+                        }
+                    }
+                } catch (\Exception $ex) {
+                    Tlog::getInstance()->error(
+                        'Failed to execute SQL request to map Brevo attribute. Error is '.$ex->getMessage().", request is : $sql");
                 }
             }
 
