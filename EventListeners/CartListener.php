@@ -1,5 +1,15 @@
 <?php
 
+/*
+ * This file is part of the Thelia package.
+ * http://www.thelia.net
+ *
+ * (c) OpenStudio <info@thelia.net>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Brevo\EventListeners;
 
 use Brevo\Services\BrevoApiService;
@@ -11,22 +21,19 @@ use Thelia\Core\Event\Cart\CartEvent;
 use Thelia\Core\Event\Order\OrderEvent;
 use Thelia\Core\Event\TheliaEvents;
 use Thelia\Log\Tlog;
-use Thelia\Model\Cart;
 use Thelia\Model\CountryQuery;
 use Thelia\Model\Currency;
 use Thelia\Model\Customer;
 use Thelia\Model\Lang;
-use Thelia\Model\Order;
 
 class CartListener implements EventSubscriberInterface
 {
-
     public function __construct(
         private RequestStack $requestStack,
         private BrevoApiService $brevoApiService,
         private BrevoProductService $brevoProductService,
         private BrevoOrderService $brevoOrderService,
-    ){
+    ) {
     }
 
     public static function getSubscribedEvents()
@@ -36,11 +43,11 @@ class CartListener implements EventSubscriberInterface
             TheliaEvents::CART_DELETEITEM => ['trackUpdateCartEvent', 128],
             TheliaEvents::CART_CLEAR => ['trackDeleteCartEvent', 128],
             TheliaEvents::ORDER_PAY => ['trackNewOrderEvent', 110],
-            TheliaEvents::ORDER_UPDATE_STATUS => ['updateStatus', 110]
+            TheliaEvents::ORDER_UPDATE_STATUS => ['updateStatus', 110],
         ];
     }
 
-    public function updateStatus(OrderEvent $orderEvent)
+    public function updateStatus(OrderEvent $orderEvent): void
     {
         /** @var Lang $lang */
         $lang = $this->requestStack->getCurrentRequest()?->getSession()->get('thelia.current.lang');
@@ -50,17 +57,17 @@ class CartListener implements EventSubscriberInterface
         $this->brevoOrderService->exportOrder($order, $lang->getLocale());
     }
 
-    public function trackUpdateCartEvent (CartEvent $event)
+    public function trackUpdateCartEvent(CartEvent $event): void
     {
         $this->trackCart($event, 'cart_updated');
     }
 
-    public function trackDeleteCartEvent (CartEvent $event)
+    public function trackDeleteCartEvent(CartEvent $event): void
     {
         $this->trackCart($event, 'cart_deleted');
     }
 
-    public function trackNewOrderEvent (OrderEvent $event)
+    public function trackNewOrderEvent(OrderEvent $event): void
     {
         $order = $event->getPlacedOrder();
 
@@ -94,8 +101,8 @@ class CartListener implements EventSubscriberInterface
                     'total' => $order->getTotalAmount($tax, true, true),
                     'currency' => $currency->getCode(),
                     'items' => $this->brevoProductService->getItemsByOrder($order, $lang->getLocale()),
-                ]
-            ]
+                ],
+            ],
         ];
 
         $this->brevoOrderService->exportOrder($order, $lang->getLocale());
@@ -107,7 +114,7 @@ class CartListener implements EventSubscriberInterface
         }
     }
 
-    protected function trackCart(CartEvent $event, $eventName)
+    protected function trackCart(CartEvent $event, $eventName): void
     {
         /** @var Customer $customer */
         $customer = $this->requestStack->getCurrentRequest()?->getSession()?->get('thelia.customer_user');
@@ -144,8 +151,8 @@ class CartListener implements EventSubscriberInterface
                     'total' => $cart->getTaxedAmount($country),
                     'currency' => $currency->getCode(),
                     'items' => $this->brevoProductService->getItemsByCart($cart, $lang->getLocale(), $country),
-                ]
-            ]
+                ],
+            ],
         ];
 
         try {
@@ -154,5 +161,4 @@ class CartListener implements EventSubscriberInterface
             Tlog::getInstance()->error('Brevo track cart error:'.$exception->getMessage());
         }
     }
-
 }

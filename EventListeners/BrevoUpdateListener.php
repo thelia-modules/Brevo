@@ -1,7 +1,20 @@
 <?php
 
+/*
+ * This file is part of the Thelia package.
+ * http://www.thelia.net
+ *
+ * (c) OpenStudio <info@thelia.net>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Brevo\EventListeners;
 
+use Brevo\Event\BrevoCategoryUpdateEvent;
+use Brevo\Event\BrevoEvents;
+use Brevo\Event\BrevoProductUpdateEvent;
 use Brevo\Services\BrevoCategoryService;
 use Brevo\Services\BrevoProductService;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -10,24 +23,17 @@ use Thelia\Core\Event\Category\CategoryUpdateEvent;
 use Thelia\Core\Event\Product\ProductCreateEvent;
 use Thelia\Core\Event\Product\ProductUpdateEvent;
 use Thelia\Core\Event\TheliaEvents;
+use Thelia\Model\Category;
 use Thelia\Model\Country;
-use Thelia\Model\CountryQuery;
 use Thelia\Model\Currency;
-use Thelia\Model\CurrencyQuery;
-use Thelia\Model\Event\CategoryEvent;
-use Thelia\Model\Event\ProductEvent;
 use Thelia\Model\Lang;
-use Thelia\Model\LangQuery;
 
 class BrevoUpdateListener implements EventSubscriberInterface
 {
-
     public function __construct(
         private BrevoCategoryService $brevoCategoryService,
         private BrevoProductService $brevoProductService
-    )
-    {
-
+    ) {
     }
 
     public static function getSubscribedEvents()
@@ -37,10 +43,14 @@ class BrevoUpdateListener implements EventSubscriberInterface
             TheliaEvents::PRODUCT_UPDATE => ['updateProduct', 100],
             TheliaEvents::CATEGORY_CREATE => ['createCategory', 100],
             TheliaEvents::CATEGORY_UPDATE => ['updateCategory', 100],
+
+            BrevoEvents::UPDATE_CATEGORY => ['updateCategory', 128],
+            BrevoEvents::UPDATE_PRODUCT => ['updateProduct', 128],
         ];
     }
 
-    public function updateProduct(ProductUpdateEvent $event)
+
+    public function updateProduct(ProductUpdateEvent|BrevoProductUpdateEvent $event): void
     {
         $lang = Lang::getDefaultLanguage();
         $currency = Currency::getDefaultCurrency();
@@ -48,7 +58,7 @@ class BrevoUpdateListener implements EventSubscriberInterface
         $this->brevoProductService->export($event->getProduct(), $lang->getLocale(), $currency, $country);
     }
 
-    public function createProduct(ProductCreateEvent $event)
+    public function createProduct(ProductCreateEvent $event): void
     {
         $lang = Lang::getDefaultLanguage();
         $currency = Currency::getDefaultCurrency();
@@ -56,13 +66,13 @@ class BrevoUpdateListener implements EventSubscriberInterface
         $this->brevoProductService->export($event->getProduct(), $lang->getLocale(), $currency, $country);
     }
 
-    public function updateCategory(CategoryUpdateEvent $event)
+    public function updateCategory(CategoryUpdateEvent|BrevoCategoryUpdateEvent $event): void
     {
         $lang = Lang::getDefaultLanguage();
         $this->brevoCategoryService->export($event->getCategory(), $lang->getLocale());
     }
 
-    public function createCategory(CategoryCreateEvent $event)
+    public function createCategory(CategoryCreateEvent $event): void
     {
         $lang = Lang::getDefaultLanguage();
         $this->brevoCategoryService->export($event->getCategory(), $lang->getLocale());
