@@ -8,4 +8,8 @@
     <route id="brevo.save" path="/admin/module/Brevo" methods="post">
         <default key="_controller">Brevo\Controller\BrevoConfigController::saveAction</default>
     </route>
+
+    <route id="brevo.webhook" path="/brevo/webhook" methods="post">
+        <default key="_controller">Brevo\Controller\BrevoWebhookController::processBrevoWebhook</default>
+    </route>
 </routes>

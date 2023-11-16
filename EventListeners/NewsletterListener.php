@@ -43,27 +43,31 @@ class NewsletterListener implements EventSubscriberInterface
             return;
         }
 
-        $contact = $this->api->subscribe($event);
-        $function = 'registration';
-        $status = $contact[1];
-        $data = ["id"=>$contact[0]["id"]];
-        $logMessage = $this->logAfterAction(
-            sprintf("Email address successfully added for %s '%s'", $function, $event->getEmail()),
-            sprintf(
-                "The email address %s was refused by brevo for action '%s'",
-                $event->getEmail(),
-                $function
-            ),
-            $status,
-            $data
-        );
+        try {
+            $contact = $this->api->subscribe($event);
+            $function = 'registration';
+            $status = $contact[1];
+            $data = ["id" => $contact[0]["id"]];
+            $logMessage = $this->logAfterAction(
+                sprintf("Email address successfully added for %s '%s'", $function, $event->getEmail()),
+                sprintf(
+                    "The email address %s was refused by brevo for action '%s'",
+                    $event->getEmail(),
+                    $function
+                ),
+                $status,
+                $data
+            );
 
-        if ($logMessage) {
-            $model = BrevoNewsletterQuery::create()->findOneByEmail($event->getEmail()) ?? new BrevoNewsletter();
-            $model
-                ->setRelationId($data["id"])
-                ->setEmail($event->getEmail())
-                ->save();
+            if ($logMessage) {
+                $model = BrevoNewsletterQuery::create()->findOneByEmail($event->getEmail()) ?? new BrevoNewsletter();
+                $model
+                    ->setRelationId($data["id"])
+                    ->setEmail($event->getEmail())
+                    ->save();
+            }
+        } catch (\Exception $ex) {
+            Tlog::getInstance()->error("Failed to process newsletter subscription : " . $ex->getMessage());
         }
     }
 
@@ -73,37 +77,49 @@ class NewsletterListener implements EventSubscriberInterface
             return;
         }
 
-        $contact = $this->api->update($event);
-        $function = 'update';
-        $status = $contact[1];
-        $data = ["id" => $contact[0]["id"]];
-        $logMessage = $this->logAfterAction(
-            sprintf("Email address successfully added for %s '%s'", $function, $event->getEmail()),
-            sprintf(
-                "The email address %s was refused by brevo for action '%s'",
-                $event->getEmail(),
-                $function
-            ),
-            $status,
-            $data
-        );
+        try {
+            $contact = $this->api->update($event);
+            $function = 'update';
+            $status = $contact[1];
+            $data = ["id" => $contact[0]["id"]];
+            $logMessage = $this->logAfterAction(
+                sprintf("Email address successfully added for %s '%s'", $function, $event->getEmail()),
+                sprintf(
+                    "The email address %s was refused by brevo for action '%s'",
+                    $event->getEmail(),
+                    $function
+                ),
+                $status,
+                $data
+            );
 
-        if ($logMessage) {
-            $model = BrevoNewsletterQuery::create()->findOneByEmail($event->getEmail()) ?? new BrevoNewsletter();
-            $model
-                ->setRelationId($data["id"])
-                ->setEmail($event->getEmail())
-                ->save();
+            if ($logMessage) {
+                $model = BrevoNewsletterQuery::create()->findOneByEmail($event->getEmail()) ?? new BrevoNewsletter();
+                $model
+                    ->setRelationId($data["id"])
+                    ->setEmail($event->getEmail())
+                    ->save();
+            }
+        } catch (\Exception $ex) {
+            Tlog::getInstance()->error("Failed to process newsletter subscription update : " . $ex->getMessage());
         }
     }
 
     public function unsubscribe(NewsletterEvent $event)
     {
-        if ((null !== $model = BrevoNewsletterQuery::create()->findPk($event->getId())) || null !== NewsletterQuery::create()->findPk($event->getId())) {
+        if ((null === $model = BrevoNewsletterQuery::create()->findPk($event->getId())) || null !== NewsletterQuery::create()->findPk($event->getId())) {
+            return;
+        }
+
+        try {
             $contact = $this->api->unsubscribe($event);
             $status = $contact[1];
             if (null === $model) {
                 $model = BrevoNewsletterQuery::create()->findOneByEmail($event->getEmail());
+            }
+
+            if (null === $model) {
+                return;
             }
 
             $data = ["id" => $model->getRelationId()];
@@ -119,8 +135,11 @@ class NewsletterListener implements EventSubscriberInterface
                     ->setRelationId(null)
                     ->save();
             }
+        }  catch (\Exception $ex) {
+            Tlog::getInstance()->error("Failed to process newsletter unsubscription : " . $ex->getMessage());
         }
     }
+
 
     protected function isStatusOk($status)
     {
