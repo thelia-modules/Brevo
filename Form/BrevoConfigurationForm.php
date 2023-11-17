@@ -58,13 +58,19 @@ class BrevoConfigurationForm extends BaseForm
     {
         $translator = Translator::getInstance();
 
-        $defaultMapping = <<< END
+        $defaultCustomerMapping = <<< END
 {
   "customer_query": {
-        "EMAIL" : {
-            "select" : "customer.email"
-        }
+    "EMAIL" : {
+      "select" : "customer.email"
     }
+  }
+}
+END;
+        $defaultMetadataMapping = <<< END
+{
+  "product_query": {
+  }
 }
 END;
         $this->formBuilder
@@ -131,9 +137,29 @@ END;
                 'required' => false,
                 'constraints' => [
                     new NotBlank(),
-                    new Callback([$this, 'checkJsonValidity']),
+                    new Callback([$this, 'checkCustomerJsonValidity']),
                 ],
-                'data' => ConfigQuery::read(Brevo::BREVO_ATTRIBUTES_MAPPING, $defaultMapping),
+                'data' => ConfigQuery::read(Brevo::BREVO_ATTRIBUTES_MAPPING, $defaultCustomerMapping),
+            ])
+            ->add('metadata_mapping', TextareaType::class, [
+                'label' => $translator->trans('Products metadata attributes mapping', [], Brevo::MESSAGE_DOMAIN),
+                'attr' => [
+                    'rows' => 10
+                ],
+                'label_attr' => [
+                    'for' => 'attributes_mapping',
+                    'help' => Translator::getInstance()->trans(
+                        'This is a mapping of Brevo products meta-data attributes with Thelia products attributes. Do not change anything here if you do not know exactly what you are doing',
+                        [],
+                        Brevo::MESSAGE_DOMAIN
+                    )
+                ],
+                'required' => false,
+                'constraints' => [
+                    new NotBlank(),
+                    new Callback([$this, 'checkProductJsonValidity']),
+                ],
+                'data' => ConfigQuery::read(Brevo::BREVO_METADATA_MAPPING, $defaultMetadataMapping),
             ])
             ->add('exception_on_errors', CheckboxType::class, [
                 'label' => $translator->trans('Throw exception on Brevo error', [], Brevo::MESSAGE_DOMAIN),
@@ -149,7 +175,17 @@ END;
             ])
         ;
     }
-    public function checkJsonValidity($value, ExecutionContextInterface $context): void
+
+    public function checkCustomerJsonValidity($value, ExecutionContextInterface $context): void
+    {
+        $this->checkJsonValidity('customer_query', $value, $context);
+    }
+    public function checkProductJsonValidity($value, ExecutionContextInterface $context): void
+    {
+        $this->checkJsonValidity('product_query', $value, $context);
+    }
+
+    public function checkJsonValidity(string $expectedNode, $value, ExecutionContextInterface $context): void
     {
         if (empty($value)) {
             return;
@@ -165,10 +201,10 @@ END;
             );
         }
 
-        if (! isset($jsonData['customer_query'])) {
+        if (! isset($jsonData[$expectedNode])) {
             $context->addViolation(
                 Translator::getInstance()->trans(
-                    "The customer attributes mapping JSON should contain a 'customer_query' field.",
+                    "The customer attributes mapping JSON should contain a '$expectedNode' field.",
                     [],
                     Brevo::MESSAGE_DOMAIN
                 )

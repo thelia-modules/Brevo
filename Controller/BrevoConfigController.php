@@ -52,6 +52,7 @@ class BrevoConfigController extends BaseAdminController
             ConfigQuery::write(Brevo::CONFIG_NEWSLETTER_ID, $data['newsletter_list']);
             ConfigQuery::write(Brevo::CONFIG_THROW_EXCEPTION_ON_ERROR, (bool) $data['exception_on_errors']);
             ConfigQuery::write(Brevo::BREVO_ATTRIBUTES_MAPPING, $data['attributes_mapping']);
+            ConfigQuery::write(Brevo::BREVO_METADATA_MAPPING, $data['metadata_mapping']);
 
             $brevoApiService->enableEcommerce();
 

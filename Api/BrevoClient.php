@@ -27,14 +27,14 @@ use Brevo\Client\Model\CreateContact;
 use Brevo\Client\Model\RemoveContactFromList;
 use Brevo\Client\Model\UpdateContact;
 use Brevo\Model\BrevoNewsletterQuery;
+use Brevo\Trait\DataExtractorTrait;
 use GuzzleHttp\Client;
-use Propel\Runtime\Connection\ConnectionWrapper;
-use Propel\Runtime\Propel;
 use Thelia\Core\Event\Newsletter\NewsletterEvent;
 use Thelia\Exception\TheliaProcessException;
-use Thelia\Log\Tlog;
 use Thelia\Model\ConfigQuery;
 use Thelia\Model\Customer;
+use Thelia\Model\CustomerQuery;
+use Thelia\Model\NewsletterQuery;
 
 /**
  * Class BrevoClient.
@@ -43,6 +43,8 @@ use Thelia\Model\Customer;
  */
 class BrevoClient
 {
+    use DataExtractorTrait;
+
     protected ContactsApi $contactApi;
     private mixed $newsletterId;
 
@@ -65,7 +67,8 @@ class BrevoClient
             if ($apiException->getCode() !== 404) {
                 throw $apiException;
             }
-            $contact = $this->createContact($event->getId());
+
+            return $this->createContact($event->getEmail());
         }
 
         $this->update($event, $contact);
@@ -78,16 +81,21 @@ class BrevoClient
         return $this->contactApi->getContactInfoWithHttpInfo($email);
     }
 
-    public function createContact(Customer $customer)
+    public function createContact(string $email)
     {
-        $contactAttribute = $this->getCustomerAttribute($customer->getId());
+        $contactAttribute = [];
+
+        if (null !== $customer = CustomerQuery::create()->findOneByEmail($email)) {
+            $contactAttribute = $this->getCustomerAttribute($customer->getId());
+        }
+
         $createContact = new CreateContact();
-        $createContact['email'] = $customer->getEmail();
+        $createContact['email'] = $email;
         $createContact['attributes'] = $contactAttribute;
         $createContact['listIds'] = [$this->newsletterId];
         $this->contactApi->createContactWithHttpInfo($createContact);
 
-        return $this->contactApi->getContactInfoWithHttpInfo($customer->getEmail());
+        return $this->contactApi->getContactInfoWithHttpInfo($email);
     }
 
     public function updateContact($identifier, Customer $customer)
@@ -110,13 +118,16 @@ class BrevoClient
         if (!$contact) {
             $sibObject = BrevoNewsletterQuery::create()->findPk($event->getId());
             if (null === $sibObject) {
-                $sibObject = BrevoNewsletterQuery::create()->findOneByEmail($previousEmail);
+                $sibObject = NewsletterQuery::create()->findPk($event->getId());
             }
-            $previousEmail = $sibObject->getEmail();
-            $contact = $this->contactApi->getContactInfoWithHttpInfo($previousEmail);
 
-            $updateContact['email'] = $event->getEmail();
-            $updateContact['attributes'] = ['PRENOM' => $event->getFirstname(), 'NOM' => $event->getLastname()];
+            if (null !== $sibObject) {
+                $previousEmail = $sibObject->getEmail();
+                $contact = $this->contactApi->getContactInfoWithHttpInfo($previousEmail);
+
+                $updateContact['email'] = $event->getEmail();
+                $updateContact['attributes'] = ['PRENOM' => $event->getFirstname(), 'NOM' => $event->getLastname()];
+            }
         }
 
         $updateContact['listIds'] = [$this->newsletterId];
@@ -125,80 +136,42 @@ class BrevoClient
         return $this->contactApi->getContactInfoWithHttpInfo($previousEmail);
     }
 
-    public function unsubscribe(NewsletterEvent $event)
+    public function unsubscribe(string $email)
     {
-        $contact = $this->contactApi->getContactInfoWithHttpInfo($event->getEmail());
+        $contact = $this->contactApi->getContactInfoWithHttpInfo($email);
         $change = false;
 
         if (\in_array($this->newsletterId, $contact[0]['listIds'], true)) {
             $contactIdentifier = new RemoveContactFromList();
-            $contactIdentifier['emails'] = [$event->getEmail()];
+            $contactIdentifier['emails'] = [$email];
             $this->contactApi->removeContactFromList($this->newsletterId, $contactIdentifier);
             $change = true;
         }
 
-        return $change ? $this->contactApi->getContactInfoWithHttpInfo($event->getEmail()) : $contact;
+        return $change ? $this->contactApi->getContactInfoWithHttpInfo($email) : $contact;
     }
 
-    public function getCustomerAttribute($customerId)
+    /**
+     * @throws \JsonException
+     */
+    public function getCustomerAttribute($customerId): array
     {
-        try {
-            if (null === $mapping = json_decode(ConfigQuery::read(Brevo::BREVO_ATTRIBUTES_MAPPING), true, 512, \JSON_THROW_ON_ERROR)) {
-                throw new TheliaProcessException("Customer attribute mapping error: JSON data seems invalid, pleas echeck syntax.");
-            }
+        $mappingString = ConfigQuery::read(Brevo::BREVO_ATTRIBUTES_MAPPING);
 
-            if (empty($mapping)) {
-                return [];
-            }
-
-            if (!\array_key_exists('customer_query', $mapping)) {
-                throw new TheliaProcessException("Customer attribute mapping error : 'customer_query' element is missing in JSON data");
-            }
-
-            $attributes = [];
-
-            /** @var ConnectionWrapper $con */
-            $con = Propel::getConnection();
-
-            foreach ($mapping['customer_query'] as $key => $customerDataQuery) {
-                if (!\array_key_exists('select', $customerDataQuery)) {
-                    throw new \Exception("Customer attribute mapping error : 'select' element missing in ".$key.' query');
-                }
-
-                try {
-                    $sql = 'SELECT '.$customerDataQuery['select'].' AS '.$key.' FROM customer';
-
-                    if (\array_key_exists('join', $customerDataQuery)) {
-                        foreach ($customerDataQuery['join'] as $join) {
-                            $sql .= ' LEFT JOIN '.$join;
-                        }
-                    }
-
-                    $sql .= ' WHERE customer.id = :customerId';
-
-                    if (\array_key_exists('groupBy', $customerDataQuery)) {
-                        $sql .= ' GROUP BY '.$customerDataQuery['groupBy'];
-                    }
-
-                    $stmt = $con->prepare($sql);
-                    $stmt->bindValue(':customerId', $customerId, \PDO::PARAM_INT);
-                    $stmt->execute();
-
-                    while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-                        $attributes[$key] = $row[$key];
-                        if (\array_key_exists($key, $mapping) && \array_key_exists($row[$key], $mapping[$key])) {
-                            $attributes[$key] = $mapping[$key][$row[$key]];
-                        }
-                    }
-                } catch (\Exception $ex) {
-                    Tlog::getInstance()->error(
-                        'Failed to execute SQL request to map Brevo attribute. Error is '.$ex->getMessage().", request is : $sql");
-                }
-            }
-
-            return $attributes;
-        } catch (\Exception $ex) {
-            throw new TheliaProcessException('Customer attribute mapping error : configuration is missing or invalid, please go to the module configuration and define the JSON mapping to match thelia attribute with brevo attribute');
+        if (empty($mappingString)) {
+            return [];
         }
+
+        if (null === $mapping = json_decode($mappingString, true)) {
+            throw new TheliaProcessException('Customer attribute mapping error: JSON data seems invalid, pleas echeck syntax.');
+        }
+
+        return $this->getMappedValues(
+            $mapping,
+            'customer_query',
+            'customer',
+            'customer.id',
+            $customerId,
+        );
     }
 }

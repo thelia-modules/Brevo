@@ -73,7 +73,7 @@ class NewsletterListener implements EventSubscriberInterface
 
     public function update(NewsletterEvent $event)
     {
-        if (null === BrevoNewsletterQuery::create()->findPk($event->getId()) || null !== NewsletterQuery::create()->findPk($event->getId())) {
+        if (null === BrevoNewsletterQuery::create()->findPk($event->getId()) && null === NewsletterQuery::create()->findPk($event->getId())) {
             return;
         }
 
@@ -107,21 +107,14 @@ class NewsletterListener implements EventSubscriberInterface
 
     public function unsubscribe(NewsletterEvent $event)
     {
-        if ((null === $model = BrevoNewsletterQuery::create()->findPk($event->getId())) || null !== NewsletterQuery::create()->findPk($event->getId())) {
-            return;
-        }
-
         try {
-            $contact = $this->api->unsubscribe($event);
-            $status = $contact[1];
-            if (null === $model) {
-                $model = BrevoNewsletterQuery::create()->findOneByEmail($event->getEmail());
-            }
+            $contact = $this->api->unsubscribe($event->getEmail());
 
-            if (null === $model) {
+            if (null === $model = BrevoNewsletterQuery::create()->findOneByEmail($event->getEmail())) {
                 return;
             }
 
+            $status = $contact[1];
             $data = ["id" => $model->getRelationId()];
             $logMessage = $this->logAfterAction(
                 sprintf("The email address '%s' was successfully unsubscribed from the list", $event->getEmail()),

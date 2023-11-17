@@ -25,10 +25,6 @@ class BrevoCustomerService
 
     public function createUpdateContact($customerId)
     {
-        if (empty(ConfigQuery::read(Brevo::BREVO_ATTRIBUTES_MAPPING, ''))) {
-            return null;
-        }
-
         $customer = CustomerQuery::create()->findPk($customerId);
 
         try {
@@ -40,7 +36,7 @@ class BrevoCustomerService
                 throw $exception;
             }
 
-            return $this->brevoClient->createContact($customer);
+            return $this->brevoClient->createContact($customer->getEmail());
         }
     }
 }
