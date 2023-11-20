@@ -1,30 +1,33 @@
 <?php
 
+/*
+ * This file is part of the Thelia package.
+ * http://www.thelia.net
+ *
+ * (c) OpenStudio <info@thelia.net>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Brevo\Services;
 
-use Brevo\Api\BrevoClient;
 use Thelia\Log\Tlog;
 use Thelia\Model\Base\ProductQuery;
-use Thelia\Model\Cart;
-use Thelia\Model\Category;
-use Thelia\Model\CategoryQuery;
-use Thelia\Model\Country;
-use Thelia\Model\Currency;
 use Thelia\Model\Order;
 use Thelia\Model\OrderProduct;
-use Thelia\Model\Product;
-use Thelia\Model\ProductImageQuery;
 use Thelia\Model\ProductSaleElementsQuery;
-use Thelia\Tools\URL;
-use function Clue\StreamFilter\fun;
 
 class BrevoOrderService
 {
-    public function __construct(private BrevoApiService $brevoApiService)
+    public function __construct(
+        private BrevoApiService $brevoApiService,
+        private BrevoProductService $brevoProductService,
+    )
     {
     }
 
-    public function exportOrder(Order $order, $locale)
+    public function exportOrder(Order $order, $locale): void
     {
         $data = $this->getOrderData($order, $locale);
 
@@ -35,7 +38,7 @@ class BrevoOrderService
         }
     }
 
-    public function exportOrderInBatch($limit, $offset, $locale)
+    public function exportOrderInBatch($limit, $offset, $locale): void
     {
         $orders = ProductQuery::create()
             ->setLimit($limit)
@@ -58,7 +61,7 @@ class BrevoOrderService
         }
     }
 
-    public function getOrderData(Order $order, $locale)
+    protected function getOrderData(Order $order, $locale)
     {
         $invoiceAddress = $order->getOrderAddressRelatedByInvoiceOrderAddressId();
         $addressCountry = $invoiceAddress->getCountry();
@@ -69,6 +72,7 @@ class BrevoOrderService
         }, $order->getOrderCoupons()->toArray());
 
         return [
+            'email' => $order->getCustomer()->getEmail(),
             'products' => $this->getOrderProductsData($order),
             'billing' => [
                 'address' => $invoiceAddress->getAddress1(),
@@ -80,12 +84,11 @@ class BrevoOrderService
                 'region' => $addressCountry->getTitle(),
             ],
             'coupon' => $coupons,
-            'id' => (string)$order->getId(),
-            'createdAt' => $order->getCreatedAt()->format("Y-m-d\TH:m:s\Z"),
-            'updatedAt' => $order->getUpdatedAt()->format("Y-m-d\TH:m:s\Z"),
+            'id' => $order->getRef(),
+            'createdAt' => $order->getCreatedAt()?->format("Y-m-d\TH:m:s\Z"),
+            'updatedAt' => $order->getUpdatedAt()?->format("Y-m-d\TH:m:s\Z"),
             'status' => $order->getOrderStatus()->getCode(),
             'amount' => round($order->getTotalAmount($tax), 2),
-            'email' => $order->getCustomer()->getEmail()
         ];
     }
 
@@ -93,16 +96,14 @@ class BrevoOrderService
     {
         $orderProductsData = [];
         foreach ($order->getOrderProducts() as $orderProduct) {
-            $pse = ProductSaleElementsQuery::create()->findPk($orderProduct->getProductSaleElementsId());
             $orderProductsData[] = [
-                'productId' => (string)$pse->getId(),
+                'productId' => $orderProduct->getProductRef(),
                 'quantity' => $orderProduct->getQuantity(),
-                'variantId' => (string)$orderProduct->getProductSaleElementsId(),
-                'price' => round((float)$orderProduct->getPrice(), 2)
+                // 'variantId' => (string) $orderProduct->getProductSaleElementsId(),
+                'price' => round((float) $orderProduct->getPrice(), 2),
             ];
         }
 
         return $orderProductsData;
     }
-
 }

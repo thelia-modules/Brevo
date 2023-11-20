@@ -61,6 +61,7 @@ class BrevoConfigurationForm extends BaseForm
         $defaultCustomerMapping = <<< END
 {
   "customer_query": {
+    "_comment" : "You can map here Brevo contact attributes to Thelia customer data."
     "EMAIL" : {
       "select" : "customer.email"
     }
@@ -70,6 +71,10 @@ END;
         $defaultMetadataMapping = <<< END
 {
   "product_query": {
+     "_comment" : "You can add here some fields to standard Brevo data, or override some standard fields (e.g., 'price')"
+  },
+  "product_metadata_query": {
+       "_comment" : "You can define here some metat data attributes, that will be placed in the 'metaInfo' field"
   }
 }
 END;
@@ -142,14 +147,14 @@ END;
                 'data' => ConfigQuery::read(Brevo::BREVO_ATTRIBUTES_MAPPING, $defaultCustomerMapping),
             ])
             ->add('metadata_mapping', TextareaType::class, [
-                'label' => $translator->trans('Products metadata attributes mapping', [], Brevo::MESSAGE_DOMAIN),
+                'label' => $translator->trans('Products attributes mapping', [], Brevo::MESSAGE_DOMAIN),
                 'attr' => [
                     'rows' => 10
                 ],
                 'label_attr' => [
                     'for' => 'attributes_mapping',
                     'help' => Translator::getInstance()->trans(
-                        'This is a mapping of Brevo products meta-data attributes with Thelia products attributes. Do not change anything here if you do not know exactly what you are doing',
+                        'This is a mapping of Brevo products data and meta-data attributes with Thelia products attributes. Do not change anything here if you do not know exactly what you are doing',
                         [],
                         Brevo::MESSAGE_DOMAIN
                     )

@@ -68,19 +68,25 @@ class BrevoApiService
             $rawResponse = curl_exec($curl);
             $status = curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
 
+            $jsonResponse = json_decode($rawResponse, true);
+
             $response = [
-                'data' => $rawResponse,
+                'data' => $jsonResponse,
                 'status' => $status,
             ];
 
             $error = curl_error($curl);
 
-            $response['success'] = !$error && $status == 200;
+            $response['success'] = !$error && substr((string) $status, 0, 1) === '2';
 
-            if ($error) {
-                Tlog::getInstance()->error($error);
+            if (! $response['success']) {
+                $errorMessage = !empty($error) ? $error : (($jsonResponse && $jsonResponse['message']) ? $jsonResponse['message'] : 'Undefined error');
 
-                $response['error'] = $error;
+                Tlog::getInstance()->error(
+                    "Brevo API call error : Status: $status, error: $errorMessage"
+                );
+
+                $response['error'] = $errorMessage;
             }
 
             curl_close($curl);

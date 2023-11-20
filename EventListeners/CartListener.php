@@ -15,6 +15,7 @@ namespace Brevo\EventListeners;
 use Brevo\Services\BrevoApiService;
 use Brevo\Services\BrevoOrderService;
 use Brevo\Services\BrevoProductService;
+use Brevo\Trait\DataExtractorTrait;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Thelia\Core\Event\Cart\CartEvent;
@@ -28,6 +29,8 @@ use Thelia\Model\Lang;
 
 class CartListener implements EventSubscriberInterface
 {
+    use DataExtractorTrait;
+
     public function __construct(
         private RequestStack $requestStack,
         private BrevoApiService $brevoApiService,
@@ -40,9 +43,13 @@ class CartListener implements EventSubscriberInterface
     {
         return [
             TheliaEvents::CART_ADDITEM => ['trackUpdateCartEvent', 128],
+            TheliaEvents::CART_UPDATEITEM => ['trackUpdateCartEvent', 128],
             TheliaEvents::CART_DELETEITEM => ['trackUpdateCartEvent', 128],
+
             TheliaEvents::CART_CLEAR => ['trackDeleteCartEvent', 128],
+
             TheliaEvents::ORDER_PAY => ['trackNewOrderEvent', 110],
+
             TheliaEvents::ORDER_UPDATE_STATUS => ['updateStatus', 110],
         ];
     }
@@ -50,7 +57,7 @@ class CartListener implements EventSubscriberInterface
     public function updateStatus(OrderEvent $orderEvent): void
     {
         /** @var Lang $lang */
-        $lang = $this->requestStack->getCurrentRequest()?->getSession()->get('thelia.current.lang');
+        $lang = $this->requestStack->getCurrentRequest()?->getSession()->getLang();
 
         $order = $orderEvent->getOrder();
 
@@ -73,34 +80,22 @@ class CartListener implements EventSubscriberInterface
 
         $customer = $order->getCustomer();
 
-        $properties = [];
+        $properties = $this->getCustomerAttribute($customer->getId());
 
-        $email = null;
-
-        if ($customer !== null) {
-            $email = $customer->getEmail();
-            $properties = [
-                'email' => $customer->getEmail(),
-                'firstname' => $customer->getFirstname(),
-                'lastname' => $customer->getLastname(),
-            ];
-        }
-
-        /** @var Currency $currency */
         $currency = $order->getCurrency();
 
         /** @var Lang $lang */
-        $lang = $this->requestStack->getCurrentRequest()?->getSession()->get('thelia.current.lang');
+        $lang = $this->requestStack->getCurrentRequest()?->getSession()->getLang();
 
         $data = [
-            'email' => $email,
+            'email' => $customer->getEmail(),
             'properties' => $properties,
             'eventdata' => [
-                'id' => sprintf('order:%s', $order->getId()),
+                'id' => $order->getRef(),
                 'data' => [
                     'total' => $order->getTotalAmount($tax, true, true),
                     'currency' => $currency->getCode(),
-                    'items' => $this->brevoProductService->getItemsByOrder($order, $lang->getLocale()),
+                    'items' => $this->brevoProductService->getOrderItems($order),
                 ],
             ],
         ];
@@ -117,21 +112,17 @@ class CartListener implements EventSubscriberInterface
     protected function trackCart(CartEvent $event, $eventName): void
     {
         /** @var Customer $customer */
-        $customer = $this->requestStack->getCurrentRequest()?->getSession()?->get('thelia.customer_user');
+        if (null === $customer = $this->requestStack->getCurrentRequest()?->getSession()?->getCustomerUser()) {
+            // No tracking if customer is not logged in, as Brevo requires an email in e-commerce tracking events.
+            return;
+        }
 
         $cart = $event->getCart();
 
         $properties = [];
 
-        $email = null;
-
         if ($customer !== null) {
-            $email = $customer->getEmail();
-            $properties = [
-                'email' => $customer->getEmail(),
-                'firstname' => $customer->getFirstname(),
-                'lastname' => $customer->getLastname(),
-            ];
+            $properties = $this->getCustomerAttribute($customer->getId());
         }
 
         /** @var Currency $currency */
@@ -143,14 +134,14 @@ class CartListener implements EventSubscriberInterface
         $lang = $this->requestStack->getCurrentRequest()?->getSession()->get('thelia.current.lang');
 
         $data = [
-            'email' => $email,
+            'email' => $customer->getEmail(),
             'properties' => $properties,
             'eventdata' => [
                 'id' => sprintf('cart:%s', $cart->getId()),
                 'data' => [
                     'total' => $cart->getTaxedAmount($country),
                     'currency' => $currency->getCode(),
-                    'items' => $this->brevoProductService->getItemsByCart($cart, $lang->getLocale(), $country),
+                    'items' => $this->brevoProductService->getCartItems($cart, $lang->getLocale(), $country),
                 ],
             ],
         ];

@@ -150,28 +150,4 @@ class BrevoClient
 
         return $change ? $this->contactApi->getContactInfoWithHttpInfo($email) : $contact;
     }
-
-    /**
-     * @throws \JsonException
-     */
-    public function getCustomerAttribute($customerId): array
-    {
-        $mappingString = ConfigQuery::read(Brevo::BREVO_ATTRIBUTES_MAPPING);
-
-        if (empty($mappingString)) {
-            return [];
-        }
-
-        if (null === $mapping = json_decode($mappingString, true)) {
-            throw new TheliaProcessException('Customer attribute mapping error: JSON data seems invalid, pleas echeck syntax.');
-        }
-
-        return $this->getMappedValues(
-            $mapping,
-            'customer_query',
-            'customer',
-            'customer.id',
-            $customerId,
-        );
-    }
 }

@@ -66,7 +66,7 @@ class BrevoProductService
 
     public function export(Product $product, $locale, Currency $currency, Country $country): void
     {
-        $data = $this->getData($product, $locale, $currency, $country);
+        $data = $this->getProductItem($product, $locale, $currency, $country);
         $data['updateEnabled'] = true;
 
         try {
@@ -87,7 +87,7 @@ class BrevoProductService
 
         /** @var Product $product */
         foreach ($products as $product) {
-            $data[] = $this->getData($product, $locale, $currency, $country);
+            $data[] = $this->getProductItem($product, $locale, $currency, $country);
         }
 
         $batchData['products'] = $data;
@@ -100,90 +100,92 @@ class BrevoProductService
         }
     }
 
-    public function getData(Product $product, $locale, Currency $currency, Country $country)
+    protected function getProductItem(Product $product, $locale, Currency $currency, Country $country)
     {
         $product->setLocale($locale);
-
         $productPrice = $product->getDefaultSaleElements()->getPricesByCurrency($currency);
-        $productSku = $product->getDefaultSaleElements()->getEanCode();
-        $categories = $product->getCategories();
-        $categoryIds = array_map(function ($category) {
-            return (string) $category['Id'];
-        }, $categories->toArray());
 
-        // Get first product image
-        $imageUrl = null;
-
-        if (null !== $productImage = ProductImageQuery::create()
-            ->filterByProductId($product->getId())
-            ->filterByVisible(1)
-            ->orderBy('position')->findOne()
-        ) {
-            // Put source image file path
-            $sourceFilePath = sprintf(
-                '%s/%s/%s',
-                $this->baseSourceFilePath,
-                'product',
-                $productImage->getFile()
-            );
-
-            // Create image processing event
-            $event = (new ImageEvent())
-                ->setSourceFilepath($sourceFilePath)
-                ->setCacheSubdirectory('product')
-            ;
-
-            try {
-                // Dispatch image processing event
-                $this->dispatcher->dispatch($event, TheliaEvents::IMAGE_PROCESS);
-                $imageUrl = $event->getFileUrl();
-            } catch (\Exception $ex) {
-                // Ignore the result
-                $a = 1;
-            }
-        }
-
-        return [
-            'categories' => $categoryIds,
-            'id' => (string) $product->getId(),
-            'name' => $product->getTitle(),
-            'url' => $product->getUrl($locale),
-            'image' => $imageUrl,
-            'sku' => $productSku ?? $product->getRef(),
-            'ref' => $product->getRef(),
-            'price' => round((float) $product->getTaxedPrice($country, $productPrice->getPrice()), 2),
-            'metaInfo' => $this->getMappedValues(
-                $this->metaDataMapping,
-                'product_query',
-                'product',
-                'product.id',
-                $product->getId(),
-            ),
-        ];
+        return $this->getProductData(
+            $product->getTitle(),
+            $product->getDescription(),
+            $product->getDefaultSaleElements()->getEanCode(),
+            $product->getRef(),
+            $productPrice->getPrice(),
+            $productPrice->getPromoPrice(),
+            $product->getTaxedPrice($country, $productPrice->getPrice()),
+            $product->getTaxedPromoPrice($country, $productPrice->getPrice()),
+            $product->getDefaultSaleElements()->getPromo(),
+            $currency,
+            $product
+        );
     }
 
-    public function getItemsByOrder(Order $order, $locale)
+    public function getCartItems(Cart $cart, $locale)
     {
         $data = [];
+
+        $country = $cart->getCustomer()?->getDefaultAddress()->getCountry() ?? Country::getDefaultCountry();
+
+        foreach ($cart->getCartItems() as $cartItem) {
+            $product = $cartItem->getProduct()->setLocale($locale);
+
+            $cartItemData = $this->getProductData(
+                $product->getTitle(),
+                $product->getDescription(),
+                $product->getDefaultSaleElements()->getEanCode(),
+                $product->getRef(),
+                (float) $cartItem->getPrice(),
+                (float) $cartItem->getPromoPrice(),
+                $cartItem->getTaxedPrice($country),
+                $cartItem->getTaxedPromoPrice($country),
+                $cartItem->getPromo(),
+                $cart->getCurrency(),
+                $product
+            );
+
+            // Add quantity
+            $cartItemData['quantity'] = $cartItem->getQuantity();
+
+            $data[] = $cartItemData;
+        }
+
+        return $data;
+    }
+
+    public function getOrderItems(Order $order)
+    {
+        $data = [];
+
+        $currency = $order->getCurrency();
 
         /** @var OrderProduct $orderProduct */
         foreach ($order->getOrderProducts() as $orderProduct) {
             $pse = ProductSaleElementsQuery::create()->findPk($orderProduct->getProductSaleElementsId());
 
-            $productData = [
-                'name' => $orderProduct->getTitle(),
-                'ref' => $orderProduct->getProductRef(),
-                'price' => round($orderProduct->getPrice(), 2),
-                'quantity' => $orderProduct->getQuantity(),
-            ];
+            $totalTaxes = $totalPromoTaxes = 0;
 
-            if (null !== $pse) {
-                $product = $pse->getProduct();
-                $imagePath = ProductImageQuery::create()->filterByProductId($pse->getProductId())->orderByPosition()->findOne()?->getFile();
-
-                $productData['url'] = URL::getInstance()?->absoluteUrl($product->getUrl());
-                $productData['image'] = $imagePath ? URL::getInstance()?->absoluteUrl('/cache/images/product/'.$imagePath) : null;
+            // Get tax total
+            foreach ($orderProduct->getOrderProductTaxes() as $orderProductTax) {
+                $totalTaxes += (float) $orderProductTax->getAmount();
+                $totalPromoTaxes += (float) $orderProductTax->getPromoAmount();
             }
+
+            $productData = $this->getProductData(
+                $orderProduct->getTitle(),
+                $orderProduct->getDescription(),
+                $orderProduct->getEanCode(),
+                $orderProduct->getProductRef(),
+                (float) $orderProduct->getPrice(),
+                (float) $orderProduct->getPromoPrice(),
+                (float) $orderProduct->getPrice() + $totalTaxes,
+                (float) $orderProduct->getPromoPrice() + $totalPromoTaxes,
+                $orderProduct->getWasInPromo(),
+                $currency,
+                $pse?->getProduct()
+            );
+
+            // Add quantity
+            $productData['quantity'] = $orderProduct->getQuantity();
 
             $data[] = $productData;
         }
@@ -191,26 +193,102 @@ class BrevoProductService
         return $data;
     }
 
-    public function getItemsByCart(Cart $cart, $locale)
+    protected function getProductData(
+        $title, $description, $eanCode, $ref,
+        float $price, float $promoPrice,
+        float $taxedPrice, float $taxedPromoPrice,
+        bool $isPromo,
+        ?Currency $currency,
+        ?Product $product): array
     {
-        $data = [];
-
-        foreach ($cart->getCartItems() as $cartItem) {
-            $product = $cartItem->getProduct();
-            $product->setLocale($locale);
-
-            $imagePath = ProductImageQuery::create()->filterByProductId($product->getId())->orderByPosition()->findOne()?->getFile();
-
-            $data[] = [
-                'name' => $product->getTitle(),
-                'ref' => $cartItem->getProduct()->getRef(),
-                'price' => round($cartItem->getPrice(), 2),
-                'quantity' => $cartItem->getQuantity(),
-                'url' => $cartItem->getProduct()->getUrl(),
-                'image' => $imagePath ? URL::getInstance()?->absoluteUrl('/cache/images/product/'.$imagePath) : null,
-            ];
+        if (!$isPromo) {
+            $promoPrice = $price;
         }
 
-        return $data;
+        $price = round($price, 2);
+        $promoPrice = round($promoPrice, 2);
+        $taxedPrice = round($taxedPrice, 2);
+        $taxedPromoPrice = round($taxedPromoPrice, 2);
+        $discount = round(100 * (1 - $promoPrice / $price), 2);
+
+        $productData = [
+            'id' => $ref,
+            'name' => $title,
+            'description' => $description,
+            'sku' => $eanCode ?? $ref,
+            'price' => $promoPrice,
+            'price_taxinc ' => $taxedPromoPrice,
+            'oldPrice' => $price,
+            'oldPrice_taxinc' => $taxedPrice,
+            'discount' => $discount,
+            'currency' => $currency?->getCode(),
+        ];
+
+        if (null !== $product) {
+            $categories = $product->getCategories();
+            $categoryIds = array_map(function ($category) {
+                return (string) $category['Id'];
+            }, $categories->toArray());
+
+            $productData['categories'] = $categoryIds;
+            $productData['url'] = URL::getInstance()?->absoluteUrl($product->getUrl());
+            $productData['imageUrl'] = $this->getProductImageUrl($product);
+            $productData['metaInfo'] = $this->getMappedValues(
+                $this->metaDataMapping,
+                'product_metadata_query',
+                'product',
+                'product.id',
+                $product->getId(),
+            );
+
+            // Add (or override) standard fields
+            $mappedFields = $this->getMappedValues(
+                $this->metaDataMapping,
+                'product_query',
+                'product',
+                'product.id',
+                $product->getId(),
+            );
+
+            $productData = array_merge($productData, $mappedFields);
+        }
+
+        return $productData;
+    }
+
+    protected function getProductImageUrl(Product $product): ?string
+    {
+        if (null === $productImage = ProductImageQuery::create()
+                ->filterByProductId($product->getId())
+                ->filterByVisible(1)
+                ->orderBy('position')->findOne()
+        ) {
+            return null;
+        }
+
+        // Put source image file path
+        $sourceFilePath = sprintf(
+            '%s/%s/%s',
+            $this->baseSourceFilePath,
+            'product',
+            $productImage->getFile()
+        );
+
+        // Create image processing event
+        $event = (new ImageEvent())
+            ->setSourceFilepath($sourceFilePath)
+            ->setCacheSubdirectory('product')
+        ;
+
+        try {
+            // Dispatch image processing event
+            $this->dispatcher->dispatch($event, TheliaEvents::IMAGE_PROCESS);
+
+            return $event->getFileUrl();
+        } catch (\Exception $ex) {
+            // Ignore the result
+        }
+
+        return null;
     }
 }

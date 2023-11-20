@@ -23,10 +23,12 @@
 
 namespace Brevo\Trait;
 
+use Brevo\Brevo;
 use Propel\Runtime\Connection\ConnectionWrapper;
 use Propel\Runtime\Propel;
 use Thelia\Exception\TheliaProcessException;
 use Thelia\Log\Tlog;
+use Thelia\Model\ConfigQuery;
 
 trait DataExtractorTrait
 {
@@ -44,7 +46,7 @@ trait DataExtractorTrait
             }
 
             if (!\array_key_exists($mapKey, $jsonMapping)) {
-                throw new TheliaProcessException("Mapping error : '$mapKey' element is missing in JSON data");
+                return [];
             }
 
             $attributes = [];
@@ -98,5 +100,26 @@ trait DataExtractorTrait
                 'Mapping error : configuration is missing or invalid, please go to the module configuration and define the JSON mapping to match thelia attribute with brevo attribute. Error is : '.$ex->getMessage()
             );
         }
+    }
+
+    public function getCustomerAttribute($customerId): array
+    {
+        $mappingString = ConfigQuery::read(Brevo::BREVO_ATTRIBUTES_MAPPING);
+
+        if (empty($mappingString)) {
+            return [];
+        }
+
+        if (null === $mapping = json_decode($mappingString, true)) {
+            throw new TheliaProcessException('Customer attribute mapping error: JSON data seems invalid, pleas echeck syntax.');
+        }
+
+        return $this->getMappedValues(
+            $mapping,
+            'customer_query',
+            'customer',
+            'customer.id',
+            $customerId,
+        );
     }
 }
