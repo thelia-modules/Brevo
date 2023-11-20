@@ -21,8 +21,7 @@ use Thelia\Model\ProductSaleElementsQuery;
 class BrevoOrderService
 {
     public function __construct(
-        private BrevoApiService $brevoApiService,
-        private BrevoProductService $brevoProductService,
+        private BrevoApiService $brevoApiService
     )
     {
     }

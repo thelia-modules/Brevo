@@ -14,6 +14,7 @@ namespace Brevo\Services;
 
 use Brevo\Brevo;
 use Brevo\Trait\DataExtractorTrait;
+use Propel\Runtime\Exception\PropelException;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Thelia\Core\Event\Image\ImageEvent;
 use Thelia\Core\Event\TheliaEvents;
@@ -30,6 +31,8 @@ use Thelia\Model\Product;
 use Thelia\Model\ProductImageQuery;
 use Thelia\Model\ProductSaleElementsQuery;
 use Thelia\Tools\URL;
+use TheliaLibrary\Model\LibraryItemImageQuery;
+use TheliaLibrary\Service\LibraryImageService;
 
 class BrevoProductService
 {
@@ -39,9 +42,12 @@ class BrevoProductService
 
     protected array $metaDataMapping = [];
 
-    public function __construct(private BrevoApiService $brevoApiService, protected EventDispatcherInterface $dispatcher)
-    {
-        if (null === $this->baseSourceFilePath = ConfigQuery::read('images_library_path', null)) {
+    public function __construct(
+        private BrevoApiService $brevoApiService,
+        protected EventDispatcherInterface $dispatcher,
+        private LibraryImageService $libraryImageService,
+    ) {
+        if (null === $this->baseSourceFilePath = ConfigQuery::read('images_library_path')) {
             $this->baseSourceFilePath = THELIA_LOCAL_DIR.'media'.DS.'images';
         } else {
             $this->baseSourceFilePath = THELIA_ROOT.$this->baseSourceFilePath;
@@ -54,16 +60,24 @@ class BrevoProductService
         }
     }
 
-    public function getObjName()
+    public function getObjName(): string
     {
         return 'product';
     }
 
-    public function getCount()
+    public function getCount(): int
     {
         return ProductQuery::create()->count();
     }
 
+    /**
+     * @param Product $product
+     * @param $locale
+     * @param Currency $currency
+     * @param Country $country
+     * @return void
+     * @throws PropelException
+     */
     public function export(Product $product, $locale, Currency $currency, Country $country): void
     {
         $data = $this->getProductItem($product, $locale, $currency, $country);
@@ -76,6 +90,15 @@ class BrevoProductService
         }
     }
 
+    /**
+     * @param $limit
+     * @param $offset
+     * @param $locale
+     * @param Currency $currency
+     * @param Country $country
+     * @return void
+     * @throws PropelException
+     */
     public function exportInBatch($limit, $offset, $locale, Currency $currency, Country $country): void
     {
         $products = ProductQuery::create()
@@ -100,27 +123,55 @@ class BrevoProductService
         }
     }
 
-    protected function getProductItem(Product $product, $locale, Currency $currency, Country $country)
+    /**
+     * @param Product $product
+     * @param $locale
+     * @param Currency $currency
+     * @param Country $country
+     * @return array
+     * @throws PropelException
+     */
+    protected function getProductItem(Product $product, $locale, Currency $currency, Country $country): array
     {
         $product->setLocale($locale);
         $productPrice = $product->getDefaultSaleElements()->getPricesByCurrency($currency);
 
-        return $this->getProductData(
-            $product->getTitle(),
-            $product->getDescription(),
-            $product->getDefaultSaleElements()->getEanCode(),
-            $product->getRef(),
-            $productPrice->getPrice(),
-            $productPrice->getPromoPrice(),
-            $product->getTaxedPrice($country, $productPrice->getPrice()),
-            $product->getTaxedPromoPrice($country, $productPrice->getPrice()),
-            $product->getDefaultSaleElements()->getPromo(),
-            $currency,
-            $product
+        $productData = [
+            'id' => $product->getRef(),
+            'name' => $product->getTitle(),
+            'url' => URL::getInstance()?->absoluteUrl($product->getUrl()),
+            'sku' => $product->getDefaultSaleElements()->getEanCode() ?? $product->getRef(),
+            'imageUrl' => $this->getProductImageUrl($product),
+            'categories' => $this->getProductCategories($product),
+            'price' => $product->getTaxedPrice($country, $productPrice->getPrice()),
+            'metaInfo' => $this->getMappedValues(
+                $this->metaDataMapping,
+                'product_metadata_query',
+                'product',
+                'product.id',
+                $product->getId(),
+            ),
+        ];
+
+        // Add (or override) standard fields
+        $mappedFields = $this->getMappedValues(
+            $this->metaDataMapping,
+            'product_query',
+            'product',
+            'product.id',
+            $product->getId(),
         );
+
+        return array_merge($productData, $mappedFields);
     }
 
-    public function getCartItems(Cart $cart, $locale)
+    /**
+     * @param Cart $cart
+     * @param $locale
+     * @return array
+     * @throws PropelException
+     */
+    public function getCartItems(Cart $cart, $locale): array
     {
         $data = [];
 
@@ -129,7 +180,7 @@ class BrevoProductService
         foreach ($cart->getCartItems() as $cartItem) {
             $product = $cartItem->getProduct()->setLocale($locale);
 
-            $cartItemData = $this->getProductData(
+            $cartItemData = $this->getProductDataForEvent(
                 $product->getTitle(),
                 $product->getDescription(),
                 $product->getDefaultSaleElements()->getEanCode(),
@@ -152,7 +203,12 @@ class BrevoProductService
         return $data;
     }
 
-    public function getOrderItems(Order $order)
+    /**
+     * @param Order $order
+     * @return array
+     * @throws PropelException
+     */
+    public function getOrderItems(Order $order): array
     {
         $data = [];
 
@@ -170,7 +226,7 @@ class BrevoProductService
                 $totalPromoTaxes += (float) $orderProductTax->getPromoAmount();
             }
 
-            $productData = $this->getProductData(
+            $productData = $this->getProductDataForEvent(
                 $orderProduct->getTitle(),
                 $orderProduct->getDescription(),
                 $orderProduct->getEanCode(),
@@ -193,7 +249,35 @@ class BrevoProductService
         return $data;
     }
 
-    protected function getProductData(
+    /**
+     * @param Product $product
+     * @return string[]
+     */
+    protected function getProductCategories(Product $product)
+    {
+        $categories = $product->getCategories();
+
+        return array_map(static function ($category) {
+            return (string) $category['Id'];
+        }, $categories->toArray());
+    }
+
+    /**
+     * @param $title
+     * @param $description
+     * @param $eanCode
+     * @param $ref
+     * @param float $price
+     * @param float $promoPrice
+     * @param float $taxedPrice
+     * @param float $taxedPromoPrice
+     * @param bool $isPromo
+     * @param Currency|null $currency
+     * @param Product|null $product
+     * @return array
+     * @throws PropelException
+     */
+    protected function getProductDataForEvent(
         $title, $description, $eanCode, $ref,
         float $price, float $promoPrice,
         float $taxedPrice, float $taxedPromoPrice,
@@ -209,7 +293,7 @@ class BrevoProductService
         $promoPrice = round($promoPrice, 2);
         $taxedPrice = round($taxedPrice, 2);
         $taxedPromoPrice = round($taxedPromoPrice, 2);
-        $discount = round(100 * (1 - $promoPrice / $price), 2);
+        $discount = $price !== 0.0 ? round(100 * (1 - $promoPrice / $price), 2) : 0.0;
 
         $productData = [
             'id' => $ref,
@@ -225,21 +309,11 @@ class BrevoProductService
         ];
 
         if (null !== $product) {
-            $categories = $product->getCategories();
-            $categoryIds = array_map(function ($category) {
-                return (string) $category['Id'];
-            }, $categories->toArray());
-
-            $productData['categories'] = $categoryIds;
+            $productData['categories'] = $this->getProductCategories($product);
             $productData['url'] = URL::getInstance()?->absoluteUrl($product->getUrl());
-            $productData['imageUrl'] = $this->getProductImageUrl($product);
-            $productData['metaInfo'] = $this->getMappedValues(
-                $this->metaDataMapping,
-                'product_metadata_query',
-                'product',
-                'product.id',
-                $product->getId(),
-            );
+            if (null !== $imageUrl = $this->getProductImageUrl($product)) {
+                $productData['imageUrl'] = $imageUrl;
+            }
 
             // Add (or override) standard fields
             $mappedFields = $this->getMappedValues(
@@ -256,14 +330,29 @@ class BrevoProductService
         return $productData;
     }
 
+    /**
+     * @throws PropelException
+     */
     protected function getProductImageUrl(Product $product): ?string
     {
+        // Search in classic images
         if (null === $productImage = ProductImageQuery::create()
                 ->filterByProductId($product->getId())
                 ->filterByVisible(1)
                 ->orderBy('position')->findOne()
         ) {
-            return null;
+            // Search in library
+            if (null === $itemImage = LibraryItemImageQuery::create()
+                ->filterByItemType('product')
+                ->filterByItemId($product->getId())
+                ->orderByPosition()
+                ->findOne()) {
+                return null;
+            }
+
+            return URL::getInstance()->absoluteUrl(
+                $this->libraryImageService->getImagePublicUrl($itemImage->getLibraryImage())
+            );
         }
 
         // Put source image file path

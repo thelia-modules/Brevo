@@ -90,7 +90,7 @@ trait DataExtractorTrait
                     }
                 } catch (\Exception $ex) {
                     Tlog::getInstance()->error(
-                        'Failed to execute SQL request to map Brevo attribute. Error is '.$ex->getMessage().", request is : $sql");
+                        'Failed to execute SQL request to map Brevo attribute "'.$key.'". Error is '.$ex->getMessage().", request is : $sql");
                 }
             }
 
