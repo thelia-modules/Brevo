@@ -150,6 +150,7 @@ class BrevoProductService
             'url' => $product->getUrl($locale),
             'image' => $imageUrl,
             'sku' => $productSku ?? $product->getRef(),
+            'ref' => $product->getRef(),
             'price' => round((float) $product->getTaxedPrice($country, $productPrice->getPrice()), 2),
             'metaInfo' => $this->getMappedValues(
                 $this->metaDataMapping,
@@ -205,7 +206,7 @@ class BrevoProductService
                 'ref' => $cartItem->getProduct()->getRef(),
                 'price' => round($cartItem->getPrice(), 2),
                 'quantity' => $cartItem->getQuantity(),
-                'url' => URL::getInstance()?->absoluteUrl($cartItem->getProduct()->getUrl()),
+                'url' => $cartItem->getProduct()->getUrl(),
                 'image' => $imagePath ? URL::getInstance()?->absoluteUrl('/cache/images/product/'.$imagePath) : null,
             ];
         }
