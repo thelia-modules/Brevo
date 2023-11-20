@@ -84,7 +84,7 @@ trait DataExtractorTrait
 
                     while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
                         //  value should be less than 255 characters
-                        $attributes[$key] = substr($row[$key], 0, 254);
+                        $attributes[$key] = mb_substr($row[$key] ?? '', 0, 254);
                         if (\array_key_exists($key, $jsonMapping) && \array_key_exists($row[$key], $jsonMapping[$key])) {
                             $attributes[$key] = $jsonMapping[$key][$row[$key]];
                         }

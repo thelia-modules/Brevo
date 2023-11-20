@@ -59,7 +59,7 @@ class BrevoExportCatalogCommand extends ContainerAwareCommand
             $this->brevoProductService,
         ];
 
-        $batchSize = 100;
+        $batchSize = 50;
 
         /** @var BrevoProductService|BrevoCategoryService $element */
         foreach ($elements as $element) {

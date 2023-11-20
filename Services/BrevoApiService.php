@@ -3,6 +3,7 @@
 namespace Brevo\Services;
 
 use Brevo\Brevo;
+use Thelia\Exception\TheliaProcessException;
 use Thelia\Log\Tlog;
 use Thelia\Model\ConfigQuery;
 
@@ -60,6 +61,10 @@ class BrevoApiService
                 CURLOPT_CUSTOMREQUEST => $method,
                 CURLOPT_HTTPHEADER => array_merge($defaultHeaders, $headers)
             ]);
+
+            if (null === $jsonData = json_encode($data)) {
+                throw new TheliaProcessException("Failed to JSON encode Brevo request body :" . $jsonData);
+            }
 
             if ($method === 'POST' || $method === 'PUT') {
                 curl_setopt_array($curl, [CURLOPT_POSTFIELDS => json_encode($data)]);
