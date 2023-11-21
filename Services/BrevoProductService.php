@@ -16,6 +16,7 @@ use Brevo\Brevo;
 use Brevo\Trait\DataExtractorTrait;
 use Propel\Runtime\Exception\PropelException;
 use Psr\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Thelia\Core\Event\Image\ImageEvent;
 use Thelia\Core\Event\TheliaEvents;
 use Thelia\Exception\TheliaProcessException;
@@ -42,10 +43,12 @@ class BrevoProductService
 
     protected array $metaDataMapping = [];
 
+    protected ?LibraryImageService $libraryImageService;
+
     public function __construct(
-        private BrevoApiService $brevoApiService,
+        protected BrevoApiService $brevoApiService,
         protected EventDispatcherInterface $dispatcher,
-        private LibraryImageService $libraryImageService,
+        ContainerInterface $container
     ) {
         if (null === $this->baseSourceFilePath = ConfigQuery::read('images_library_path')) {
             $this->baseSourceFilePath = THELIA_LOCAL_DIR.'media'.DS.'images';
@@ -58,6 +61,9 @@ class BrevoProductService
         if (!empty($mappingString) && null === $this->metaDataMapping = json_decode($mappingString, true)) {
             throw new TheliaProcessException('Product metadata mapping error: JSON data seems invalid, please check syntax.');
         }
+
+        // Set image service manually, just in case the TheliaLibrary module is not enabled.
+        $this->libraryImageService = $container->get('thelia_library_image', ContainerInterface::NULL_ON_INVALID_REFERENCE);
     }
 
     public function getObjName(): string
@@ -341,18 +347,20 @@ class BrevoProductService
                 ->filterByVisible(1)
                 ->orderBy('position')->findOne()
         ) {
-            // Search in library
-            if (null === $itemImage = LibraryItemImageQuery::create()
-                ->filterByItemType('product')
-                ->filterByItemId($product->getId())
-                ->orderByPosition()
-                ->findOne()) {
-                return null;
-            }
+            // Search in library if the service is available
+            if (null !== $this->libraryImageService) {
+                if (null === $itemImage = LibraryItemImageQuery::create()
+                        ->filterByItemType('product')
+                        ->filterByItemId($product->getId())
+                        ->orderByPosition()
+                        ->findOne()) {
+                    return null;
+                }
 
-            return URL::getInstance()->absoluteUrl(
-                $this->libraryImageService->getImagePublicUrl($itemImage->getLibraryImage())
-            );
+                return URL::getInstance()->absoluteUrl(
+                    $this->libraryImageService->getImagePublicUrl($itemImage->getLibraryImage())
+                );
+            }
         }
 
         // Put source image file path

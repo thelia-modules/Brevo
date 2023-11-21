@@ -82,11 +82,44 @@ trait DataExtractorTrait
                     $stmt->bindValue(':selector', $selector, $selectorType);
                     $stmt->execute();
 
+                    // Decode flags
+                    $flags = [];
+                    if (\array_key_exists('flags', $dataQuery)) {
+                        if (\is_array($dataQuery['flags'])) {
+                            foreach ($dataQuery['flags'] as $flagDesc) {
+                                $flags[$flagDesc['type']] = $flagDesc['arg'] ?? '';
+                            }
+                        }
+                    }
+
                     while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-                        //  value should be less than 255 characters
-                        $attributes[$key] = mb_substr($row[$key] ?? '', 0, 254);
-                        if (\array_key_exists($key, $jsonMapping) && \array_key_exists($row[$key], $jsonMapping[$key])) {
-                            $attributes[$key] = $jsonMapping[$key][$row[$key]];
+                        $value = $row[$key] ?? '';
+
+                        // Process flags
+                        foreach ($flags as $name => $arg) {
+                            switch ($name) {
+                                case 'strip_tags':
+                                    $value = strip_tags($value);
+                                    break;
+                                case 'htmlspecialchars_decode':
+                                    $value = htmlspecialchars_decode($value);
+                                    break;
+                                case 'truncate':
+                                    $value = mb_substr($value, 0, (int) $arg);
+                                    break;
+                                case 'ellipsis':
+                                    $value = $this->truncate($value, (int) $arg);
+                                    break;
+                                default:
+                                    Tlog::getInstance()->warning("Undefined flag : $name");
+                                    break;
+                            }
+                        }
+
+                        $attributes[$key] = $value;
+
+                        if (\array_key_exists($key, $jsonMapping) && \array_key_exists($value, $jsonMapping[$key])) {
+                            $attributes[$key] = $jsonMapping[$key][$value];
                         }
                     }
                 } catch (\Exception $ex) {
@@ -122,5 +155,25 @@ trait DataExtractorTrait
             'customer.id',
             $customerId,
         );
+    }
+
+    /**
+     * Truncates a string to a certain char length, stopping on a word.
+     *
+     * @param $string
+     * @param $length
+     * @return mixed|string
+     */
+    protected function truncate($string, $length) {
+        //
+        if (mb_strlen($string) > $length) {
+            //limit hit!
+            $string = mb_substr($string,0, ($length - 1));
+
+            //stop on a word.
+            $string = mb_substr($string,0, mb_strrpos($string,' ')).'…';
+        }
+
+        return $string;
     }
 }
