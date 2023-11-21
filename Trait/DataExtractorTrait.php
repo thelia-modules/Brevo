@@ -101,8 +101,8 @@ trait DataExtractorTrait
                                 case 'strip_tags':
                                     $value = strip_tags($value);
                                     break;
-                                case 'htmlspecialchars_decode':
-                                    $value = htmlspecialchars_decode($value);
+                                case 'html_entity_decode':
+                                    $value = html_entity_decode($value, \ENT_QUOTES, 'UTF-8');
                                     break;
                                 case 'truncate':
                                     $value = mb_substr($value, 0, (int) $arg);
