@@ -81,6 +81,23 @@ class BrevoClient
         return $this->contactApi->getContactInfoWithHttpInfo($email);
     }
 
+    public function buildCreateOrUpdateData(string $email): array
+    {
+        $contactAttribute = [];
+
+        if (null !== $customer = CustomerQuery::create()->findOneByEmail($email)) {
+            $contactAttribute = $this->getCustomerAttribute($customer->getId());
+        }
+
+        $data['email'] = $email;
+        if (! empty($contactAttribute)) {
+            $data['attributes'] = $contactAttribute;
+        }
+        $data['listIds'] = [$this->newsletterId];
+
+        return $data;
+    }
+
     public function createContact(string $email)
     {
         $contactAttribute = [];
@@ -89,10 +106,8 @@ class BrevoClient
             $contactAttribute = $this->getCustomerAttribute($customer->getId());
         }
 
-        $createContact = new CreateContact();
-        $createContact['email'] = $email;
-        $createContact['attributes'] = $contactAttribute;
-        $createContact['listIds'] = [$this->newsletterId];
+        $createContact = new CreateContact($this->buildCreateOrUpdateData($email));
+
         $this->contactApi->createContactWithHttpInfo($createContact);
 
         return $this->contactApi->getContactInfoWithHttpInfo($email);
@@ -100,11 +115,7 @@ class BrevoClient
 
     public function updateContact($identifier, Customer $customer)
     {
-        $contactAttribute = $this->getCustomerAttribute($customer->getId());
-        $createContact = new UpdateContact();
-        $createContact['email'] = $customer->getEmail();
-        $createContact['attributes'] = $contactAttribute;
-        $createContact['listIds'] = [$this->newsletterId];
+        $createContact = new UpdateContact($this->buildCreateOrUpdateData($customer->getEmail()));
         $this->contactApi->updateContactWithHttpInfo($identifier, $createContact);
 
         return $this->contactApi->getContactInfoWithHttpInfo($customer->getEmail());
