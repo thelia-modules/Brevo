@@ -89,6 +89,11 @@ class BrevoClient
             $contactAttribute = $this->getCustomerAttribute($customer->getId());
         }
 
+        return $this->buildCreateOrUpdateGenericData($email, $contactAttribute);
+    }
+
+    public function buildCreateOrUpdateGenericData(string $email, array $contactAttribute): array
+    {
         $data['email'] = $email;
         if (! empty($contactAttribute)) {
             $data['attributes'] = $contactAttribute;
@@ -100,13 +105,12 @@ class BrevoClient
 
     public function createContact(string $email)
     {
-        $contactAttribute = [];
+        return $this->createGenericContact($email, $this->buildCreateOrUpdateData($email));
+    }
 
-        if (null !== $customer = CustomerQuery::create()->findOneByEmail($email)) {
-            $contactAttribute = $this->getCustomerAttribute($customer->getId());
-        }
-
-        $createContact = new CreateContact($this->buildCreateOrUpdateData($email));
+    public function createGenericContact(string $email, array $contactAttributes)
+    {
+        $createContact = new CreateContact($contactAttributes);
 
         $this->contactApi->createContactWithHttpInfo($createContact);
 
@@ -115,10 +119,20 @@ class BrevoClient
 
     public function updateContact($identifier, Customer $customer)
     {
-        $createContact = new UpdateContact($this->buildCreateOrUpdateData($customer->getEmail()));
-        $this->contactApi->updateContactWithHttpInfo($identifier, $createContact);
+        return $this->updateGenericContact(
+            $identifier,
+            $customer->getEmail(),
+            $this->buildCreateOrUpdateData($customer->getEmail())
+        );
+    }
 
-        return $this->contactApi->getContactInfoWithHttpInfo($customer->getEmail());
+    public function updateGenericContact($identifier, string $email, array $contactAttributes)
+    {
+        $updateContact = new UpdateContact($contactAttributes);
+
+        $this->contactApi->updateContactWithHttpInfo($identifier, $updateContact);
+
+        return $this->contactApi->getContactInfoWithHttpInfo($email);
     }
 
     public function update(NewsletterEvent $event, $contact = null)
