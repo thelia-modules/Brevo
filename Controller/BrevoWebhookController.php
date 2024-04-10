@@ -41,6 +41,8 @@ class BrevoWebhookController extends BaseFrontController
      */
     public function processBrevoWebhook(Request $request): Response
     {
+        $c = $request->getContent();
+
         $brevoData = $request->toArray();
 
         if (!isset($brevoData['event'])) {
@@ -82,6 +84,6 @@ class BrevoWebhookController extends BaseFrontController
         }
 
         // Say OK to Brevo !
-        return new Response(200, 'OK');
+        return new Response('OK', 200);
     }
 }
