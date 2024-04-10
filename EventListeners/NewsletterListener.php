@@ -1,34 +1,40 @@
 <?php
-/*************************************************************************************/
-/*      This file is part of the Thelia package.                                     */
-/*                                                                                   */
-/*      Copyright (c) OpenStudio                                                     */
-/*      email : dev@thelia.net                                                       */
-/*      web : http://www.thelia.net                                                  */
-/*                                                                                   */
-/*      For the full copyright and license information, please view the LICENSE.txt  */
-/*      file that was distributed with this source code.                             */
-/*************************************************************************************/
+
+/*
+ * This file is part of the Thelia package.
+ * http://www.thelia.net
+ *
+ * (c) OpenStudio <info@thelia.net>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
+/*      Copyright (c) OpenStudio */
+/*      email : dev@thelia.net */
+/*      web : http://www.thelia.net */
+
+/*      For the full copyright and license information, please view the LICENSE.txt */
+/*      file that was distributed with this source code. */
 
 namespace Brevo\EventListeners;
 
-use Propel\Runtime\Exception\PropelException;
 use Brevo\Api\BrevoClient;
-use Brevo\Model\BrevoNewsletter;
-use Brevo\Model\BrevoNewsletterQuery;
 use Brevo\Brevo;
 use Brevo\Brevo as BrevoModule;
+use Brevo\Model\BrevoNewsletter;
+use Brevo\Model\BrevoNewsletterQuery;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Thelia\Core\Event\Newsletter\NewsletterEvent;
 use Thelia\Core\Event\TheliaEvents;
 use Thelia\Core\Translation\Translator;
 use Thelia\Log\Tlog;
-use Thelia\Model\NewsletterQuery;
 use Thelia\Model\ConfigQuery;
+use Thelia\Model\NewsletterQuery;
 
 /**
- * Class NewsletterListener
- * @package Brevo\EventListeners
+ * Class NewsletterListener.
+ *
  * @author Chabreuil Antoine <achabreuil@openstudio.com>
  */
 class NewsletterListener implements EventSubscriberInterface
@@ -37,7 +43,7 @@ class NewsletterListener implements EventSubscriberInterface
     {
     }
 
-    public function subscribe(NewsletterEvent $event)
+    public function subscribe(NewsletterEvent $event): void
     {
         if (null !== BrevoNewsletterQuery::create()->findPk($event->getId())) {
             return;
@@ -47,7 +53,7 @@ class NewsletterListener implements EventSubscriberInterface
             $contact = $this->api->subscribe($event);
             $function = 'registration';
             $status = $contact[1];
-            $data = ["id" => $contact[0]["id"]];
+            $data = ['id' => $contact[0]['id']];
             $logMessage = $this->logAfterAction(
                 sprintf("Email address successfully added for %s '%s'", $function, $event->getEmail()),
                 sprintf(
@@ -62,16 +68,16 @@ class NewsletterListener implements EventSubscriberInterface
             if ($logMessage) {
                 $model = BrevoNewsletterQuery::create()->findOneByEmail($event->getEmail()) ?? new BrevoNewsletter();
                 $model
-                    ->setRelationId($data["id"])
+                    ->setRelationId($data['id'])
                     ->setEmail($event->getEmail())
                     ->save();
             }
         } catch (\Exception $ex) {
-            Tlog::getInstance()->error("Failed to process newsletter subscription : " . $ex->getMessage());
+            Tlog::getInstance()->error('Failed to process newsletter subscription : '.$ex->getMessage());
         }
     }
 
-    public function update(NewsletterEvent $event)
+    public function update(NewsletterEvent $event): void
     {
         if (null === BrevoNewsletterQuery::create()->findPk($event->getId()) && null === NewsletterQuery::create()->findPk($event->getId())) {
             return;
@@ -81,7 +87,7 @@ class NewsletterListener implements EventSubscriberInterface
             $contact = $this->api->update($event);
             $function = 'update';
             $status = $contact[1];
-            $data = ["id" => $contact[0]["id"]];
+            $data = ['id' => $contact[0]['id']];
             $logMessage = $this->logAfterAction(
                 sprintf("Email address successfully added for %s '%s'", $function, $event->getEmail()),
                 sprintf(
@@ -96,16 +102,16 @@ class NewsletterListener implements EventSubscriberInterface
             if ($logMessage) {
                 $model = BrevoNewsletterQuery::create()->findOneByEmail($event->getEmail()) ?? new BrevoNewsletter();
                 $model
-                    ->setRelationId($data["id"])
+                    ->setRelationId($data['id'])
                     ->setEmail($event->getEmail())
                     ->save();
             }
         } catch (\Exception $ex) {
-            Tlog::getInstance()->error("Failed to process newsletter subscription update : " . $ex->getMessage());
+            Tlog::getInstance()->error('Failed to process newsletter subscription update : '.$ex->getMessage());
         }
     }
 
-    public function unsubscribe(NewsletterEvent $event)
+    public function unsubscribe(NewsletterEvent $event): void
     {
         try {
             $contact = $this->api->unsubscribe($event->getEmail());
@@ -115,7 +121,7 @@ class NewsletterListener implements EventSubscriberInterface
             }
 
             $status = $contact[1];
-            $data = ["id" => $model->getRelationId()];
+            $data = ['id' => $model->getRelationId()];
             $logMessage = $this->logAfterAction(
                 sprintf("The email address '%s' was successfully unsubscribed from the list", $event->getEmail()),
                 sprintf("The email address '%s' was not unsubscribed from the list", $event->getEmail()),
@@ -128,11 +134,10 @@ class NewsletterListener implements EventSubscriberInterface
                     ->setRelationId(null)
                     ->save();
             }
-        }  catch (\Exception $ex) {
-            Tlog::getInstance()->error("Failed to process newsletter unsubscription : " . $ex->getMessage());
+        } catch (\Exception $ex) {
+            Tlog::getInstance()->error('Failed to process newsletter unsubscription : '.$ex->getMessage());
         }
     }
-
 
     protected function isStatusOk($status)
     {
@@ -146,12 +151,12 @@ class NewsletterListener implements EventSubscriberInterface
 
             return true;
         } else {
-            Tlog::getInstance()->error(sprintf("%s. Status code: %d, data: %s", $errorMessage, $status, $data));
+            Tlog::getInstance()->error(sprintf('%s. Status code: %d, data: %s', $errorMessage, $status, $data));
 
             if (ConfigQuery::read(Brevo::CONFIG_THROW_EXCEPTION_ON_ERROR, false)) {
                 throw new \InvalidArgumentException(
                     Translator::getInstance()?->trans(
-                        "An error occurred during the newsletter registration process",
+                        'An error occurred during the newsletter registration process',
                         [],
                         BrevoModule::MESSAGE_DOMAIN
                     )
@@ -184,10 +189,10 @@ class NewsletterListener implements EventSubscriberInterface
      */
     public static function getSubscribedEvents()
     {
-        return array(
-            TheliaEvents::NEWSLETTER_SUBSCRIBE => array("subscribe", 192), // Come before, as if it crashes, it won't be saved by thelia
-            TheliaEvents::NEWSLETTER_UPDATE => array("update", 192),
-            TheliaEvents::NEWSLETTER_UNSUBSCRIBE => array("unsubscribe", 192),
-        );
+        return [
+            TheliaEvents::NEWSLETTER_SUBSCRIBE => ['subscribe', 192], // Come before, as if it crashes, it won't be saved by thelia
+            TheliaEvents::NEWSLETTER_UPDATE => ['update', 192],
+            TheliaEvents::NEWSLETTER_UNSUBSCRIBE => ['unsubscribe', 192],
+        ];
     }
 }
