@@ -45,7 +45,7 @@ trait DataExtractorTrait
                 return [];
             }
 
-            if (!\array_key_exists($mapKey, $jsonMapping)) {
+            if (empty($jsonMapping[$mapKey] || ! is_array($jsonMapping[$mapKey]))) {
                 return [];
             }
 
@@ -55,14 +55,14 @@ trait DataExtractorTrait
             $con = Propel::getConnection();
 
             foreach ($jsonMapping[$mapKey] as $key => $dataQuery) {
-                if (!\array_key_exists('select', $dataQuery)) {
+                if (empty($dataQuery['select'])) {
                     throw new \Exception("Mapping error : 'select' element missing in ".$key.' query');
                 }
 
                 try {
                     $sql = 'SELECT '.$dataQuery['select'].' AS '.$key.' FROM '.$sourceTableName;
 
-                    if (\array_key_exists('join', $dataQuery)) {
+                    if (! empty($dataQuery['join'])) {
                         if (!\is_array($dataQuery['join'])) {
                             $dataQuery['join'] = [$dataQuery['join']];
                         }
@@ -74,7 +74,7 @@ trait DataExtractorTrait
 
                     $sql .= ' WHERE '.$selectorFieldName.' = :selector';
 
-                    if (\array_key_exists('groupBy', $dataQuery)) {
+                    if (! empty($dataQuery['groupBy'])) {
                         $sql .= ' GROUP BY '.$dataQuery['groupBy'];
                     }
 
@@ -84,11 +84,9 @@ trait DataExtractorTrait
 
                     // Decode flags
                     $flags = [];
-                    if (\array_key_exists('flags', $dataQuery)) {
-                        if (\is_array($dataQuery['flags'])) {
-                            foreach ($dataQuery['flags'] as $flagDesc) {
-                                $flags[$flagDesc['type']] = $flagDesc['arg'] ?? '';
-                            }
+                    if (! empty($dataQuery['flags']) && \is_array($dataQuery['flags'])) {
+                        foreach ($dataQuery['flags'] as $flagDesc) {
+                            $flags[$flagDesc['type']] = $flagDesc['arg'] ?? '';
                         }
                     }
 
