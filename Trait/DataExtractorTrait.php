@@ -45,7 +45,7 @@ trait DataExtractorTrait
                 return [];
             }
 
-            if (empty($jsonMapping[$mapKey] || ! is_array($jsonMapping[$mapKey]))) {
+            if (empty($jsonMapping[$mapKey] || !\is_array($jsonMapping[$mapKey]))) {
                 return [];
             }
 
@@ -56,13 +56,14 @@ trait DataExtractorTrait
 
             foreach ($jsonMapping[$mapKey] as $key => $dataQuery) {
                 if (empty($dataQuery['select'])) {
-                    throw new \Exception("Mapping error : 'select' element missing in ".$key.' query');
+                    Tlog::getInstance()->warning("Mapping error : 'select' element missing in ".$key.' query');
+                    continue;
                 }
 
                 try {
                     $sql = 'SELECT '.$dataQuery['select'].' AS '.$key.' FROM '.$sourceTableName;
 
-                    if (! empty($dataQuery['join'])) {
+                    if (!empty($dataQuery['join'])) {
                         if (!\is_array($dataQuery['join'])) {
                             $dataQuery['join'] = [$dataQuery['join']];
                         }
@@ -74,7 +75,7 @@ trait DataExtractorTrait
 
                     $sql .= ' WHERE '.$selectorFieldName.' = :selector';
 
-                    if (! empty($dataQuery['groupBy'])) {
+                    if (!empty($dataQuery['groupBy'])) {
                         $sql .= ' GROUP BY '.$dataQuery['groupBy'];
                     }
 
@@ -84,7 +85,7 @@ trait DataExtractorTrait
 
                     // Decode flags
                     $flags = [];
-                    if (! empty($dataQuery['flags']) && \is_array($dataQuery['flags'])) {
+                    if (!empty($dataQuery['flags']) && \is_array($dataQuery['flags'])) {
                         foreach ($dataQuery['flags'] as $flagDesc) {
                             $flags[$flagDesc['type']] = $flagDesc['arg'] ?? '';
                         }
@@ -128,7 +129,7 @@ trait DataExtractorTrait
 
             return $attributes;
         } catch (\Exception $ex) {
-            throw new TheliaProcessException(
+            Tlog::getInstance()->error(
                 'Mapping error : configuration is missing or invalid, please go to the module configuration and define the JSON mapping to match thelia attribute with brevo attribute. Error is : '.$ex->getMessage()
             );
         }
@@ -158,18 +159,16 @@ trait DataExtractorTrait
     /**
      * Truncates a string to a certain char length, stopping on a word.
      *
-     * @param $string
-     * @param $length
      * @return mixed|string
      */
-    protected function truncate($string, $length) {
-        //
+    protected function truncate($string, $length)
+    {
         if (mb_strlen($string) > $length) {
-            //limit hit!
-            $string = mb_substr($string,0, ($length - 1));
+            // limit hit!
+            $string = mb_substr($string, 0, $length - 1);
 
-            //stop on a word.
-            $string = mb_substr($string,0, mb_strrpos($string,' ')).'…';
+            // stop on a word.
+            $string = mb_substr($string, 0, mb_strrpos($string, ' ')).'…';
         }
 
         return $string;
