@@ -25,6 +25,12 @@
             {render_form_field field="automation_key"}
             {render_form_field field="newsletter_list"}
             {render_form_field field="exception_on_errors"}
+
+            <div class="alert alert-info">
+                <p>{intl d="brevo.bo.default" l="Use the following URL to add a webhook to Brevo : <b>%url</b>" url={url path="/brevo/webhook"}}</p>
+                <p>{intl d="brevo.bo.default" l="Currently, only <code>unsubscribe</code> and <code>contact_deleted</code> events are supported."}</p>
+            </div>
+
             {render_form_field field="attributes_mapping" extra_class="fixedfont"}
             {render_form_field field="metadata_mapping" extra_class="fixedfont"}
 
