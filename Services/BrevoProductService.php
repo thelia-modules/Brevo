@@ -195,7 +195,7 @@ class BrevoProductService
                 (float) $cartItem->getPromoPrice(),
                 $cartItem->getTaxedPrice($country),
                 $cartItem->getTaxedPromoPrice($country),
-                $cartItem->getPromo(),
+                (bool) $cartItem->getPromo(),
                 $cart->getCurrency(),
                 $product
             );
@@ -241,7 +241,7 @@ class BrevoProductService
                 (float) $orderProduct->getPromoPrice(),
                 (float) $orderProduct->getPrice() + $totalTaxes,
                 (float) $orderProduct->getPromoPrice() + $totalPromoTaxes,
-                $orderProduct->getWasInPromo(),
+                (bool) $orderProduct->getWasInPromo(),
                 $currency,
                 $pse?->getProduct()
             );
