@@ -14,6 +14,10 @@ class BrevoApiService
         $marketingAutomationKey = ConfigQuery::read(Brevo::CONFIG_AUTOMATION_KEY);
         $apikey = ConfigQuery::read(Brevo::CONFIG_API_SECRET);
 
+        if (!$marketingAutomationKey || !$apikey) {
+            return;
+        }
+
         $this->sendRequest(
             'POST',
             'https://in-automate.brevo.com/api/v2/trackEvent',
@@ -29,6 +33,10 @@ class BrevoApiService
     {
         $marketingAutomationKey = ConfigQuery::read(Brevo::CONFIG_AUTOMATION_KEY);
         $apikey = ConfigQuery::read(Brevo::CONFIG_API_SECRET);
+
+        if (!$marketingAutomationKey || !$apikey) {
+            return;
+        }
 
         return $this->sendRequest(
             'POST',
@@ -82,9 +90,9 @@ class BrevoApiService
 
             $error = curl_error($curl);
 
-            $response['success'] = !$error && substr((string) $status, 0, 1) === '2';
+            $response['success'] = !$error && substr((string)$status, 0, 1) === '2';
 
-            if (! $response['success']) {
+            if (!$response['success']) {
                 $errorMessage = !empty($error) ? $error : (($jsonResponse && $jsonResponse['message']) ? $jsonResponse['message'] : 'Undefined error');
 
                 Tlog::getInstance()->error(
@@ -109,6 +117,6 @@ class BrevoApiService
 
     public function enableEcommerce()
     {
-       return $this->sendPostEvent('https://api.brevo.com/v3/ecommerce/activate');
+        return $this->sendPostEvent('https://api.brevo.com/v3/ecommerce/activate');
     }
 }
