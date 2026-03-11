@@ -15,7 +15,7 @@ namespace Brevo;
 use Propel\Runtime\Connection\ConnectionInterface;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurator;
 use Symfony\Component\Filesystem\Filesystem;
-use Thelia\Install\Database;
+use Thelia\Core\Install\Database;
 use Thelia\Model\Config;
 use Thelia\Model\ConfigQuery;
 use Thelia\Module\BaseModule;
