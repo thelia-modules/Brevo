@@ -31,7 +31,7 @@ use Thelia\Model\Customer;
 class HookManager extends BaseHook
 {
     /** @var Request */
-    protected $request;
+    protected ?Request $request = null;
 
     public function __construct(RequestStack $requestStack, EventDispatcherInterface $eventDispatcher)
     {
