@@ -45,7 +45,7 @@ class NewsletterListener implements EventSubscriberInterface
 
     public function subscribe(NewsletterEvent $event): void
     {
-        if (null !== BrevoNewsletterQuery::create()->findPk($event->getId())) {
+        if (null !== BrevoNewsletterQuery::create()->findOneByEmail($event->getEmail())) {
             return;
         }
 
