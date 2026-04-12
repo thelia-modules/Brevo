@@ -187,7 +187,7 @@ class NewsletterListener implements EventSubscriberInterface
      *
      * @api
      */
-    public static function getSubscribedEvents()
+    public static function getSubscribedEvents(): array
     {
         return [
             TheliaEvents::NEWSLETTER_SUBSCRIBE => ['subscribe', 192], // Come before, as if it crashes, it won't be saved by thelia
