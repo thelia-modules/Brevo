@@ -21,6 +21,7 @@ namespace Brevo\Form;
 
 use Brevo\Brevo;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
+use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Validator\Constraints\Callback;
@@ -79,7 +80,8 @@ END;
 }
 END;
         $this->formBuilder
-            ->add('api_key', TextType::class, [
+            ->add('api_key', PasswordType::class, [
+                'always_empty' => false,
                 'label' => $translator->trans('Brevo API key', [], Brevo::MESSAGE_DOMAIN),
                 'label_attr' => [
                     'for' => 'api_key',
@@ -95,7 +97,8 @@ END;
                 ],
                 'data' => ConfigQuery::read(Brevo::CONFIG_API_SECRET),
             ])
-            ->add('automation_key', TextType::class, [
+            ->add('automation_key', PasswordType::class, [
+                'always_empty' => false,
                 'label' => $translator->trans('Automation key', [], Brevo::MESSAGE_DOMAIN),
                 'label_attr' => [
                     'for' => 'automation_key',

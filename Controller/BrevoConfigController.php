@@ -27,8 +27,10 @@ use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Thelia\Controller\Admin\BaseAdminController;
 use Thelia\Core\Template\ParserContext;
+use Thelia\Core\Translation\Translator;
 use Thelia\Model\ConfigQuery;
 use Thelia\Tools\URL;
 
@@ -43,6 +45,9 @@ class BrevoConfigController extends BaseAdminController
     {
         $baseForm = $this->createForm(BrevoConfigurationForm::getName());
 
+        $session = $request->getSession();
+        $flashBag = $session instanceof FlashBagAwareSessionInterface ? $session->getFlashBag() : null;
+
         try {
             $form = $this->validateForm($baseForm);
             $data = $form->getData();
@@ -56,18 +61,27 @@ class BrevoConfigController extends BaseAdminController
 
             $brevoApiService->enableEcommerce();
 
-            $parserContext->set('success', true);
+            $flashBag?->add(
+                'success',
+                Translator::getInstance()->trans('Configuration correctly saved', [], 'brevo.bo.default')
+            );
 
             if ('close' === $request->request->get('save_mode')) {
                 return new RedirectResponse(URL::getInstance()->absoluteUrl('/admin/modules'));
             }
+
+            return $this->generateRedirect(URL::getInstance()->absoluteUrl('/admin/module/Brevo'));
         } catch (\Exception $e) {
             $parserContext
                 ->setGeneralError($e->getMessage())
                 ->addForm($baseForm)
             ;
-        }
 
-        return $this->render('module-configure', ['module_code' => 'Brevo']);
+            // Surface the validation/error message through the flash bag so it survives
+            // the redirect and is rendered by the default-twig back-office flash block.
+            $flashBag?->add('danger', $e->getMessage());
+
+            return $this->generateRedirect(URL::getInstance()->absoluteUrl('/admin/module/Brevo'));
+        }
     }
 }

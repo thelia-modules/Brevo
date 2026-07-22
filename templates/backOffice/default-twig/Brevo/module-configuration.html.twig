@@ -1,0 +1,36 @@
+{# Module configuration fragment — no {% extends %} — rendered inside the module-configure page #}
+{% form_theme form with bo_form_themes only %}
+
+<div class="card mb-4" id="brevo-config">
+    <div class="card-header">{{ 'Configure brevo'|trans({}, 'brevo.bo.default') }}</div>
+    <div class="card-body">
+
+        {# Success / error messages are shown by the back-office flash block (set in the controller). #}
+        {{ form_start(form, {action: path('brevo.save'), method: 'POST', attr: {id: 'brevo-config-form'}}) }}
+
+        {{ form_row(form.api_key) }}
+        {{ form_row(form.automation_key) }}
+        {{ form_row(form.newsletter_list) }}
+        {{ form_row(form.exception_on_errors) }}
+
+        <div class="alert alert-info">
+            <p>{{ 'Use the following URL to add a webhook to Brevo:'|trans({}, 'brevo.bo.default') }}
+                <b>{{ url('brevo.webhook') }}</b></p>
+            <p>{{ 'Currently, only unsubscribe and contact_deleted events are supported.'|trans({}, 'brevo.bo.default') }}</p>
+        </div>
+
+        {{ form_row(form.attributes_mapping, {attr: {class: 'font-monospace', rows: 10}}) }}
+        {{ form_row(form.metadata_mapping, {attr: {class: 'font-monospace', rows: 10}}) }}
+
+        <div class="mt-3">
+            <button type="submit" name="save_mode" value="stay" class="btn btn-primary btn-sm">
+                <i class="bi bi-save"></i> {{ 'Save'|trans({}, 'brevo.bo.default') }}
+            </button>
+            <button type="submit" name="save_mode" value="close" class="btn btn-outline-primary btn-sm">
+                {{ 'Save and close'|trans({}, 'brevo.bo.default') }}
+            </button>
+        </div>
+
+        {{ form_end(form) }}
+    </div>
+</div>
