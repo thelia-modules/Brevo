@@ -87,6 +87,8 @@ class CartListener implements EventSubscriberInterface
         /** @var Lang $lang */
         $lang = $this->requestStack->getCurrentRequest()?->getSession()->getLang();
 
+        $tax = 0;
+
         $data = [
             'email' => $customer->getEmail(),
             'properties' => $properties,

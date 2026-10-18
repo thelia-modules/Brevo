@@ -45,7 +45,7 @@ trait DataExtractorTrait
                 return [];
             }
 
-            if (empty($jsonMapping[$mapKey] || !\is_array($jsonMapping[$mapKey]))) {
+            if (empty($jsonMapping[$mapKey]) || !\is_array($jsonMapping[$mapKey])) {
                 return [];
             }
 
@@ -132,6 +132,8 @@ trait DataExtractorTrait
             Tlog::getInstance()->error(
                 'Mapping error : configuration is missing or invalid, please go to the module configuration and define the JSON mapping to match thelia attribute with brevo attribute. Error is : '.$ex->getMessage()
             );
+
+            return [];
         }
     }
 

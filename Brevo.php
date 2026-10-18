@@ -36,7 +36,7 @@ class Brevo extends BaseModule
     const BREVO_ATTRIBUTES_MAPPING = "brevo.brevo_attributes_mapping";
     const BREVO_METADATA_MAPPING = "brevo.brevo_metadata_mapping";
 
-    public function postActivation(ConnectionInterface $con = null): void
+    public function postActivation(?ConnectionInterface $con = null): void
     {
         $con->beginTransaction();
 
@@ -89,7 +89,7 @@ class Brevo extends BaseModule
      * @param string $newVersion
      * @param ConnectionInterface $con
      */
-    public function update($currentVersion, $newVersion, ConnectionInterface $con = null): void
+    public function update($currentVersion, $newVersion, ?ConnectionInterface $con = null): void
     {
         if ($newVersion === '1.3.2') {
             $db = new Database($con);
@@ -106,7 +106,7 @@ class Brevo extends BaseModule
     public static function configureServices(ServicesConfigurator $servicesConfigurator): void
     {
         $servicesConfigurator->load(self::getModuleCode().'\\', __DIR__)
-            ->exclude([THELIA_MODULE_DIR.ucfirst(self::getModuleCode()).'/I18n/*'])
+            ->exclude([__DIR__.'/I18n/*'])
             ->autowire(true)
             ->autoconfigure(true);
     }
