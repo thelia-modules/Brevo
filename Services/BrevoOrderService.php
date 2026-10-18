@@ -62,6 +62,8 @@ class BrevoOrderService
 
     protected function getOrderData(Order $order, $locale)
     {
+        $tax = 0;
+
         $invoiceAddress = $order->getOrderAddressRelatedByInvoiceOrderAddressId();
         $addressCountry = $invoiceAddress->getCountry();
         $addressCountry->setLocale($locale);
