@@ -25,8 +25,8 @@ namespace Brevo\Controller;
 
 use Brevo\Model\BrevoNewsletterQuery;
 use Thelia\Controller\Front\BaseFrontController;
+use Symfony\Component\HttpFoundation\Response;
 use Thelia\Core\HttpFoundation\Request;
-use Thelia\Core\HttpFoundation\Response;
 use Thelia\Log\Tlog;
 use Thelia\Model\Newsletter;
 use Thelia\Model\NewsletterQuery;
@@ -46,11 +46,11 @@ class BrevoWebhookController extends BaseFrontController
         $brevoData = $request->toArray();
 
         if (!isset($brevoData['event'])) {
-            return new Response(400, 'No event provided');
+            return new Response('No event provided', 400);
         }
 
         if (!isset($brevoData['email'])) {
-            return new Response(400, 'No email provided');
+            return new Response('No email provided', 400);
         }
 
         $email = $brevoData['email'];
@@ -84,6 +84,6 @@ class BrevoWebhookController extends BaseFrontController
         }
 
         // Say OK to Brevo !
-        return new Response('OK', 200);
+        return new Response('OK', Response::HTTP_OK);
     }
 }
