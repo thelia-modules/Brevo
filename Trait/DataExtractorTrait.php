@@ -45,7 +45,7 @@ trait DataExtractorTrait
                 return [];
             }
 
-            if (empty($jsonMapping[$mapKey] || !\is_array($jsonMapping[$mapKey]))) {
+            if (empty($jsonMapping[$mapKey]) || !\is_array($jsonMapping[$mapKey])) {
                 return [];
             }
 
